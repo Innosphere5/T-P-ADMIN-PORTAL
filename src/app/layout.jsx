@@ -1,7 +1,7 @@
 import '../styles/globals.css';
 
 export const metadata = {
-  title: 'RIMT Academic Trust — T&P Web Admin Portal',
+  title: 'RIMT BCA  — T&P Web Admin Portal',
   description: 'Student Management ands Training & Placement Admin Portal with glossy KPIs, cryptographic credential verification, and responsive multi-device design.',
 };
 
