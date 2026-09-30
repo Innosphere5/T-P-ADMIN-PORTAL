@@ -579,10 +579,10 @@ export default function OnboardingApprovals({ globalSearch = '' }) {
                               setLinkedInStudent(student);
                             }}
                             className="px-2.5 py-1.5 rounded-lg text-[#0077B5] bg-[#0077B5]/10 hover:bg-[#0077B5]/20 border border-[#0077B5]/25 transition shadow-2xs flex items-center gap-1.5 font-bold text-xs cursor-pointer"
-                            title="Inspect Complete LinkedIn Profile & Vault Documents"
+                            title="Inspect Complete Student Profile & Vault Documents"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">LinkedIn Profile</span>
+                            <span className="hidden sm:inline">Student Profile</span>
                           </button>
 
                           {isPending ? (
@@ -690,7 +690,7 @@ export default function OnboardingApprovals({ globalSearch = '' }) {
                 className="w-full py-2.5 px-4 rounded-xl bg-[#0077B5] hover:bg-[#005E93] text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span>Open Full LinkedIn-Style Dossier &amp; Vault Documents</span>
+                <span>Open Full Student Dossier &amp; Vault Documents</span>
               </button>
             </div>
 

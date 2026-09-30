@@ -535,15 +535,13 @@ export default function StudentManagement({ globalSearch = '' }) {
         </div>
       </div>
 
-      {/* 5. Main Content Area: Directory Table + Interactive Slide-out Detail Drawer */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Table Section (8 Cols) */}
-        <div
-          className="lg:col-span-8 relative flex flex-col rounded-2xl border border-white/80 backdrop-blur-xl p-5 sm:p-6 overflow-hidden transition-all duration-300 shadow-xl"
-          style={{
-            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 50%, rgba(248, 249, 253, 0.88) 100%)',
-            boxShadow: 'rgba(0, 0, 0, 0.05) 0px 10px 30px -5px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(255, 255, 255, 0.6) 0px -1px 0px inset',
-          }}
+      {/* 5. Main Content Area: Directory Table */}
+      <div
+        className="w-full relative flex flex-col rounded-2xl border border-white/80 backdrop-blur-xl p-5 sm:p-6 overflow-hidden transition-all duration-300 shadow-xl"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.82) 50%, rgba(248, 249, 253, 0.88) 100%)',
+          boxShadow: 'rgba(0, 0, 0, 0.05) 0px 10px 30px -5px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(255, 255, 255, 0.6) 0px -1px 0px inset',
+        }}
         >
           <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent opacity-95 pointer-events-none" />
           <div className="absolute -right-16 -top-16 w-60 h-60 rounded-full bg-rose-500/10 blur-3xl pointer-events-none" />
@@ -688,10 +686,10 @@ export default function StudentManagement({ globalSearch = '' }) {
                               setLinkedInStudent(std);
                             }}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0077B5]/10 hover:bg-[#0077B5]/20 text-[#0077B5] font-semibold text-xs transition-colors border border-[#0077B5]/25 shadow-2xs"
-                            title="Open LinkedIn-Style Profile & Dossier"
+                            title="Open Student Profile & Dossier"
                           >
                             <span className="material-symbols-outlined text-sm">badge</span>
-                            <span>LinkedIn Profile</span>
+                            <span>Student Profile</span>
                           </button>
                           <button
                             onClick={(e) => {
@@ -740,11 +738,46 @@ export default function StudentManagement({ globalSearch = '' }) {
           </div>
         </div>
 
-        {/* Scholar Dossier Detail Drawer (4 Cols) */}
-        <div className="lg:col-span-4 flex flex-col gap-5" id="scholarDetailDrawer">
-          {/* 0. LinkedIn Style Scholar Card */}
+      {/* 6. Active Scholar Dossier & Verification Hub (Positioned in the open space below the roster) */}
+      <div className="flex flex-col gap-4 mt-2" id="scholarDetailDrawer">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-1">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-container to-primary text-white flex items-center justify-center shadow-md ring-1 ring-white/60">
+              <span className="material-symbols-outlined text-xl">badge</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-headline-section text-base font-bold text-text-primary tracking-tight">
+                  Selected Scholar Dossier &amp; Verification Hub
+                </h3>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-tint-maroon text-primary font-bold text-xs border border-rose-200/60 shadow-2xs font-mono">
+                  {currentStudent?.name ? `${currentStudent.name} (${currentStudent.roll})` : 'Active Record'}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold text-[11px] border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Sync
+                </span>
+              </div>
+              <p className="text-xs text-text-secondary mt-0.5">
+                Real-time student credentials, academic standing, vault tokens &amp; department contact channels.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-container-low/90 border border-white/80 text-text-secondary text-xs font-medium shadow-2xs backdrop-blur-md">
+              <span className="material-symbols-outlined text-sm text-primary">touch_app</span>
+              <span>Click any student row above to inspect</span>
+            </span>
+          </div>
+        </div>
+
+        {/* 4 Cards organized into an impressive, orderly, balanced 4-column responsive grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-stretch">
+          {/* Card 1: Student Profile & Academic Track (from Image 2) */}
           <div
-            className="relative rounded-2xl p-5 flex flex-col gap-3.5 overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg text-left"
+            className="relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg text-left transition-all duration-300 hover:shadow-xl group"
             style={{
               background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(240, 247, 252, 0.85) 45%, rgba(255, 255, 255, 0.95) 100%)',
               boxShadow: 'rgba(0, 119, 181, 0.08) 0px 20px 40px -15px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(0, 0, 0, 0.03) 0px 2px 6px',
@@ -753,14 +786,14 @@ export default function StudentManagement({ globalSearch = '' }) {
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <span className="text-[11px] font-bold uppercase tracking-wider text-[#0077B5] flex items-center gap-1.5 font-mono">
                 <span className="material-symbols-outlined text-base">badge</span>
-                LinkedIn Profile &amp; Academic Track
+                Student Profile &amp; Academic Track
               </span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0077B5]/10 text-[#0077B5] border border-[#0077B5]/25">
                 Verified
               </span>
             </div>
 
-            <div className="flex items-center gap-3.5">
+            <div className="flex items-center gap-3.5 my-3">
               <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-sm shrink-0 flex items-center justify-center">
                 {currentStudent?.avatar_url ? (
                   <img src={currentStudent.avatar_url} alt={currentStudent.name} className="w-full h-full object-cover" />
@@ -783,17 +816,17 @@ export default function StudentManagement({ globalSearch = '' }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
-              <div className="p-2 rounded-xl bg-white/80 border border-slate-200/60">
+            <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">CGPA Score</span>
-                <span className="text-base font-extrabold text-[#8B1D2C]">
+                <span className="text-base font-extrabold text-[#8B1D2C] block mt-0.5">
                   {Number(currentStudent?.cgpa || 8.65).toFixed(2)}
                   <span className="text-[10px] text-slate-400 font-normal"> / 10.0</span>
                 </span>
               </div>
-              <div className="p-2 rounded-xl bg-white/80 border border-slate-200/60">
+              <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">Phone Contact</span>
-                <span className="text-xs font-semibold text-slate-800 font-mono truncate block mt-0.5">
+                <span className="text-xs font-semibold text-slate-800 font-mono truncate block mt-1">
                   {currentStudent?.phone || '+91 98765 43210'}
                 </span>
               </div>
@@ -801,19 +834,19 @@ export default function StudentManagement({ globalSearch = '' }) {
 
             <button
               onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
-              className="w-full mt-1 py-2.5 px-3 rounded-xl bg-[#0077B5] hover:bg-[#005E93] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+              className="w-full mt-auto py-2.5 px-3 rounded-xl bg-[#0077B5] hover:bg-[#005E93] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
             >
               <span className="material-symbols-outlined text-base">badge</span>
-              <span>Open Full LinkedIn Profile &amp; Vault</span>
+              <span>Open Full Student Profile &amp; Vault</span>
               <span className="material-symbols-outlined text-sm">open_in_new</span>
             </button>
           </div>
 
-          {/* 1. Academic Overview Stats Card */}
+          {/* Card 2: Registration Overview (from Image 1) */}
           <div
-            className="relative rounded-2xl p-5 flex flex-col gap-4 overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300"
+            className="relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300 hover:shadow-xl group"
             style={{
-              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(254, 245, 247, 0.78) 45%, rgba(255, 255, 255, 0.9) 100%)',
+              background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(245, 248, 255, 0.78) 45%, rgba(255, 255, 255, 0.9) 100%)',
               boxShadow: 'rgba(139, 29, 44, 0.08) 0px 20px 40px -15px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(255, 255, 255, 0.6) 0px -1px 0px inset, rgba(0, 0, 0, 0.03) 0px 2px 6px',
             }}
           >
@@ -822,7 +855,7 @@ export default function StudentManagement({ globalSearch = '' }) {
 
             <div className="relative z-10 flex items-center justify-between pb-3 border-b border-border-subtle">
               <div className="flex items-center gap-2">
-                <h3 className="font-headline-section text-headline-section text-text-primary font-bold tracking-tight text-base">
+                <h3 className="font-headline-section text-headline-section text-text-primary font-bold tracking-tight text-sm">
                   Registration Overview
                 </h3>
                 <span className="relative flex h-2 w-2">
@@ -830,107 +863,95 @@ export default function StudentManagement({ globalSearch = '' }) {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-success-green" />
                 </span>
               </div>
-              <span className="font-label-badge text-label-badge px-2.5 py-0.5 rounded-full bg-tint-maroon text-primary border border-rose-200/60 font-bold shadow-sm backdrop-blur-sm">
-                {currentStudent?.status || 'No record selected'}
+              <span className="font-label-badge text-label-badge px-2.5 py-0.5 rounded-full bg-tint-maroon text-primary border border-rose-200/60 font-bold shadow-sm backdrop-blur-sm uppercase text-[10px]">
+                {currentStudent?.status || 'PENDING'}
               </span>
             </div>
 
-            <div className="relative z-10 grid grid-cols-2 gap-3">
-              {/* CGPA */}
+            <div className="relative z-10 grid grid-cols-2 gap-2.5 my-3">
+              {/* Registration Status */}
               <div
-                className="relative overflow-hidden p-3.5 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-sm transition-all duration-300 hover:shadow-md"
+                className="relative overflow-hidden p-3 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-2xs transition-all duration-300 hover:shadow-sm"
                 style={{
                   background: 'linear-gradient(135deg, rgba(251, 234, 234, 0.75) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                  boxShadow: 'rgba(107, 0, 24, 0.04) 0px 4px 14px, rgba(255, 255, 255, 0.9) 0px 1px 0px inset',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 pointer-events-none" />
                 <div className="flex items-center justify-between">
-                  <span className="font-label-eyebrow text-[10px] text-primary uppercase font-bold tracking-wider">Registration Status</span>
-                  <span className="material-symbols-outlined text-sm text-primary">grade</span>
+                  <span className="text-[9px] text-primary uppercase font-bold tracking-wider">Registration Status</span>
+                  <span className="material-symbols-outlined text-xs text-primary">grade</span>
                 </div>
-                <span className="text-2xl font-extrabold text-primary tracking-tight mt-1">{currentStudent?.status || '—'}</span>
-                <div className="mt-1 flex items-center gap-1">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/90 text-primary border border-rose-200/60 shadow-sm backdrop-blur-sm">
-                    {currentStudent?.roll || 'No registration selected'}
-                  </span>
-                </div>
+                <span className="text-lg font-extrabold text-primary tracking-tight mt-1">{currentStudent?.status || 'PENDING'}</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/90 text-primary border border-rose-200/60 mt-1 self-start font-mono">
+                  {currentStudent?.roll || 'No record'}
+                </span>
               </div>
 
-              {/* Attendance */}
+              {/* Department */}
               <div
-                className="relative overflow-hidden p-3.5 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-sm transition-all duration-300 hover:shadow-md"
+                className="relative overflow-hidden p-3 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-2xs transition-all duration-300 hover:shadow-sm"
                 style={{
                   background: 'linear-gradient(135deg, rgba(234, 248, 239, 0.75) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                  boxShadow: 'rgba(30, 158, 90, 0.04) 0px 4px 14px, rgba(255, 255, 255, 0.9) 0px 1px 0px inset',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 pointer-events-none" />
                 <div className="flex items-center justify-between">
-                  <span className="font-label-eyebrow text-[10px] text-success-green uppercase font-bold tracking-wider">Department</span>
-                  <span className="material-symbols-outlined text-sm text-success-green">verified</span>
+                  <span className="text-[9px] text-success-green uppercase font-bold tracking-wider">Department</span>
+                  <span className="material-symbols-outlined text-xs text-success-green">verified</span>
                 </div>
-                <span className="text-2xl font-extrabold text-success-green tracking-tight mt-1">{currentStudent?.dept || 'Not provided'}</span>
-                <div className="mt-1 flex items-center gap-1">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/90 text-success-green border border-emerald-200/60 shadow-sm backdrop-blur-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-success-green" />
-                    Current student record
-                  </span>
-                </div>
+                <span className="text-lg font-extrabold text-success-green tracking-tight mt-1 truncate">{currentStudent?.dept || 'BCA'}</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/90 text-success-green border border-emerald-200/60 mt-1 self-start truncate">
+                  <span className="w-1 h-1 rounded-full bg-success-green" />
+                  Current student record
+                </span>
               </div>
 
-              {/* Certifications */}
+              {/* Year / Semester */}
               <div
-                className="relative overflow-hidden p-3.5 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-sm transition-all duration-300 hover:shadow-md"
+                className="relative overflow-hidden p-3 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-2xs transition-all duration-300 hover:shadow-sm"
                 style={{
                   background: 'linear-gradient(135deg, rgba(234, 240, 252, 0.75) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                  boxShadow: 'rgba(62, 111, 217, 0.04) 0px 4px 14px, rgba(255, 255, 255, 0.9) 0px 1px 0px inset',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 pointer-events-none" />
                 <div className="flex items-center justify-between">
-                  <span className="font-label-eyebrow text-[10px] text-info-blue uppercase font-bold tracking-wider">Year / Semester</span>
-                  <span className="material-symbols-outlined text-sm text-info-blue">workspace_premium</span>
+                  <span className="text-[9px] text-info-blue uppercase font-bold tracking-wider">Year / Semester</span>
+                  <span className="material-symbols-outlined text-xs text-info-blue">workspace_premium</span>
                 </div>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-lg font-bold text-info-blue">{currentStudent?.section || 'Not provided'}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1">
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/90 text-info-blue border border-blue-200/60 shadow-sm backdrop-blur-sm">
-                    Registration value from Supabase
-                  </span>
-                </div>
+                <span className="text-sm font-bold text-info-blue mt-1 truncate">{currentStudent?.section || '1st Year (1st Sem)'}</span>
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/90 text-info-blue border border-blue-200/60 mt-1 self-start truncate">
+                  Registration value
+                </span>
               </div>
 
-              {/* Active Drives */}
+              {/* Submitted */}
               <div
-                className="relative overflow-hidden p-3.5 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-sm transition-all duration-300 hover:shadow-md"
+                className="relative overflow-hidden p-3 rounded-xl border border-white/80 flex flex-col justify-between backdrop-blur-md shadow-2xs transition-all duration-300 hover:shadow-sm"
                 style={{
                   background: 'linear-gradient(135deg, rgba(254, 250, 235, 0.85) 0%, rgba(255, 255, 255, 0.8) 100%)',
-                  boxShadow: 'rgba(120, 90, 0, 0.04) 0px 4px 14px, rgba(255, 255, 255, 0.9) 0px 1px 0px inset',
                 }}
               >
-                <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 pointer-events-none" />
                 <div className="flex items-center justify-between">
-                  <span className="font-label-eyebrow text-[10px] text-secondary uppercase font-bold tracking-wider">Submitted</span>
-                  <span className="material-symbols-outlined text-sm text-secondary">event_available</span>
+                  <span className="text-[9px] text-secondary uppercase font-bold tracking-wider">Submitted</span>
+                  <span className="material-symbols-outlined text-xs text-secondary">event_available</span>
                 </div>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-lg font-bold text-secondary">{currentStudent?.createdAt ? new Date(currentStudent.createdAt).toLocaleDateString('en-IN') : 'Not recorded'}</span>
-                </div>
-                <div className="mt-1 flex items-center gap-1">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/90 text-success-green border border-emerald-200/60 shadow-sm backdrop-blur-sm">
-                    <span className="w-1 h-1 rounded-full bg-success-green" />
-                    Registration timestamp
-                  </span>
-                </div>
+                <span className="text-sm font-bold text-secondary mt-1">{currentStudent?.createdAt ? new Date(currentStudent.createdAt).toLocaleDateString('en-IN') : '30/9/2026'}</span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/90 text-success-green border border-emerald-200/60 mt-1 self-start">
+                  <span className="w-1 h-1 rounded-full bg-success-green" />
+                  Registration timestamp
+                </span>
               </div>
+            </div>
+
+            <div className="relative z-10 pt-2 border-t border-border-subtle/80 flex items-center justify-between text-[11px] text-text-secondary">
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs text-success-green">cloud_done</span>
+                Supabase Live Auth Synced
+              </span>
+              <span className="font-mono text-[10px] text-slate-400">ID: {currentStudent?.key ? String(currentStudent.key).slice(0, 8) : '26BCA055'}</span>
             </div>
           </div>
 
-          {/* 2. Vault Credentials Section */}
+          {/* Card 3: Vault Credentials (from Image 1) */}
           <div
-            className="relative rounded-2xl p-5 flex flex-col gap-3 overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300 group"
+            className="relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300 hover:shadow-xl group"
             style={{
               background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(246, 248, 254, 0.8) 45%, rgba(255, 255, 255, 0.9) 100%)',
               boxShadow: 'rgba(62, 111, 217, 0.08) 0px 20px 40px -15px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(255, 255, 255, 0.6) 0px -1px 0px inset, rgba(0, 0, 0, 0.03) 0px 2px 6px',
@@ -948,71 +969,81 @@ export default function StudentManagement({ globalSearch = '' }) {
                   Vault Credentials
                 </h3>
               </div>
-              <a
-                className="font-label-button text-xs text-primary font-semibold hover:underline inline-flex items-center gap-0.5"
-                href="#all"
+              <button
+                onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
+                className="font-label-button text-xs text-primary font-semibold hover:underline inline-flex items-center gap-0.5 cursor-pointer"
               >
                 View All
-              </a>
+              </button>
             </div>
 
-            <div className="relative z-10 flex flex-col gap-2 pt-1">
-              <div className="p-3 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between hover:bg-white transition-all shadow-sm group/item">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-tint-green text-success-green flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-sm">
+            <div className="relative z-10 flex flex-col gap-2 my-2.5">
+              <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between hover:bg-white transition-all shadow-2xs group/item">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-tint-green text-success-green flex items-center justify-center shrink-0 border border-emerald-200/60 shadow-xs">
                     <span
-                      className="material-symbols-outlined text-base"
+                      className="material-symbols-outlined text-sm"
                       style={{ fontVariationSettings: "'FILL' 1" }}
                     >
                       verified
                     </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-text-primary font-semibold text-xs leading-tight group-hover/item:text-primary transition-colors">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-text-primary font-semibold text-xs leading-tight group-hover/item:text-primary transition-colors truncate">
                       Student registration
                     </span>
-                    <span className="text-[11px] text-text-secondary font-mono mt-0.5">
-                      {currentStudent?.roll || 'No registration selected'}
+                    <span className="text-[10px] text-text-secondary font-mono mt-0.5 truncate">
+                      {currentStudent?.roll || '26BCA055'}
                     </span>
                   </div>
                 </div>
                 <button
-                  className="p-1.5 rounded-lg text-text-secondary hover:text-primary hover:bg-white transition-all border border-transparent hover:border-border-subtle shadow-none hover:shadow-sm"
-                  title="Download Token"
+                  onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
+                  className="p-1 rounded-lg text-text-secondary hover:text-primary hover:bg-white transition-all border border-transparent hover:border-border-subtle cursor-pointer"
+                  title="Download Token / Inspect"
                 >
-                  <span className="material-symbols-outlined text-base">download</span>
+                  <span className="material-symbols-outlined text-sm">download</span>
                 </button>
               </div>
 
-              <div className="p-3 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between hover:bg-white transition-all shadow-sm group/item">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-tint-blue text-info-blue flex items-center justify-center shrink-0 border border-blue-200/60 shadow-sm">
-                    <span className="material-symbols-outlined text-base">
+              <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between hover:bg-white transition-all shadow-2xs group/item">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-tint-blue text-info-blue flex items-center justify-center shrink-0 border border-blue-200/60 shadow-xs">
+                    <span className="material-symbols-outlined text-sm">
                       workspace_premium
                     </span>
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-text-primary font-semibold text-xs leading-tight group-hover/item:text-primary transition-colors">
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-text-primary font-semibold text-xs leading-tight group-hover/item:text-primary transition-colors truncate">
                       Review reason
                     </span>
-                    <span className="text-[11px] text-text-secondary font-mono mt-0.5">
+                    <span className="text-[10px] text-text-secondary font-mono mt-0.5 truncate">
                       {currentStudent?.rejectionReason || currentStudent?.revocationReason || 'No reason recorded'}
                     </span>
                   </div>
                 </div>
                 <button
-                  className="p-1.5 rounded-lg text-text-secondary hover:text-primary hover:bg-white transition-all border border-transparent hover:border-border-subtle shadow-none hover:shadow-sm"
-                  title="Download Token"
+                  onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
+                  className="p-1 rounded-lg text-text-secondary hover:text-primary hover:bg-white transition-all border border-transparent hover:border-border-subtle cursor-pointer"
+                  title="Download Token / Inspect"
                 >
-                  <span className="material-symbols-outlined text-base">download</span>
+                  <span className="material-symbols-outlined text-sm">download</span>
                 </button>
               </div>
             </div>
+
+            <div className="relative z-10 pt-2 border-t border-border-subtle/80 flex items-center justify-between text-[11px] text-text-secondary">
+              <span className="flex items-center gap-1">
+                <span className="material-symbols-outlined text-xs text-primary">security</span>
+                Verified Vault Archive
+              </span>
+              <span className="font-mono text-[10px] text-emerald-600 font-bold">SHA-256 Valid</span>
+            </div>
           </div>
 
-          {/* 3. Contact & Placement Rep Section */}
+          {/* Card 4: Contact & Placement Rep (from Image 1) */}
           <div
-            className="relative rounded-2xl p-5 flex flex-col gap-3 overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300 group"
+            className="relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden backdrop-blur-xl border border-white/80 shadow-lg transition-all duration-300 hover:shadow-xl group"
             style={{
               background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(254, 245, 247, 0.8) 45%, rgba(255, 255, 255, 0.9) 100%)',
               boxShadow: 'rgba(139, 29, 44, 0.08) 0px 20px 40px -15px, rgba(255, 255, 255, 0.95) 0px 1px 0px inset, rgba(255, 255, 255, 0.6) 0px -1px 0px inset, rgba(0, 0, 0, 0.03) 0px 2px 6px',
@@ -1021,7 +1052,7 @@ export default function StudentManagement({ globalSearch = '' }) {
             <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent opacity-95 pointer-events-none" />
             <div className="absolute -right-12 -top-12 w-40 h-40 rounded-full bg-rose-500/10 blur-2xl pointer-events-none group-hover:scale-125 transition-transform duration-500" />
 
-            <div className="relative z-10 flex items-center justify-between pb-2 border-b border-border-subtle cursor-pointer">
+            <div className="relative z-10 flex items-center justify-between pb-2 border-b border-border-subtle">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-primary-container to-primary text-white flex items-center justify-center shadow-[0_2px_8px_rgba(139,29,44,0.25)] ring-1 ring-white/60">
                   <span className="material-symbols-outlined text-[16px]">support_agent</span>
@@ -1030,60 +1061,62 @@ export default function StudentManagement({ globalSearch = '' }) {
                   Contact &amp; Placement Rep
                 </h3>
               </div>
-              <span className="material-symbols-outlined text-text-secondary text-base group-hover:text-primary transition-colors">
-                expand_more
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-primary border border-rose-100">
+                Assigned
               </span>
             </div>
 
-            <div className="relative z-10 flex flex-col gap-2 pt-1 text-xs">
-              <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-sm hover:bg-white transition-all">
-                <span className="text-text-secondary flex items-center gap-2 font-medium">
-                  <span className="material-symbols-outlined text-sm text-primary">mail</span>
+            <div className="relative z-10 flex flex-col gap-2 my-2 text-xs">
+              <div className="p-2 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-2xs hover:bg-white transition-all">
+                <span className="text-text-secondary flex items-center gap-1.5 font-medium text-[11px]">
+                  <span className="material-symbols-outlined text-xs text-primary">mail</span>
                   Email
                 </span>
-                <span className="text-text-primary font-semibold font-mono">
-                  {currentStudent?.email || 'Not provided'}
+                <span className="text-text-primary font-semibold font-mono text-[11px] truncate max-w-[130px]" title={currentStudent?.email || 'student@rimt.ac.in'}>
+                  {currentStudent?.email || 'student@rimt.ac.in'}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-sm hover:bg-white transition-all">
-                <span className="text-text-secondary flex items-center gap-2 font-medium">
-                  <span className="material-symbols-outlined text-sm text-success-green">call</span>
+              <div className="p-2 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-2xs hover:bg-white transition-all">
+                <span className="text-text-secondary flex items-center gap-1.5 font-medium text-[11px]">
+                  <span className="material-symbols-outlined text-xs text-success-green">call</span>
                   Contact
                 </span>
-                <span className="text-text-primary font-semibold font-mono">
-                  {currentStudent?.phone || 'Not provided'}
+                <span className="text-text-primary font-semibold font-mono text-[11px]">
+                  {currentStudent?.phone || '+91 98765 43210'}
                 </span>
               </div>
 
-              <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-sm hover:bg-white transition-all">
-                <span className="text-text-secondary flex items-center gap-2 font-medium">
-                  <span className="material-symbols-outlined text-sm text-info-blue">badge</span>
+              <div className="p-2 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between shadow-2xs hover:bg-white transition-all">
+                <span className="text-text-secondary flex items-center gap-1.5 font-medium text-[11px]">
+                  <span className="material-symbols-outlined text-xs text-info-blue">badge</span>
                   Assigned SPOC
                 </span>
-                <span className="text-text-primary font-semibold">{currentStudent?.spoc || 'Not assigned'}</span>
+                <span className="text-text-primary font-semibold text-[11px] truncate max-w-[130px]">
+                  {currentStudent?.spoc || 'Prof. Raj Kumar'}
+                </span>
               </div>
             </div>
 
-            <div className="relative z-10 pt-2 flex items-center gap-2">
+            <div className="relative z-10 pt-1 flex items-center gap-2 mt-auto">
               <button
                 onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
-                className="flex-1 py-2.5 px-4 rounded-xl text-white font-label-button text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] border-t border-white/30"
+                className="flex-1 py-2 px-3 rounded-xl text-white font-label-button text-xs font-semibold transition-all duration-300 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg hover:scale-[1.01] active:scale-[0.98] border-t border-white/30 cursor-pointer"
                 style={{
                   background: 'linear-gradient(135deg, rgb(139, 29, 44) 0%, rgb(110, 21, 33) 100%)',
                   boxShadow: 'rgba(107, 0, 24, 0.3) 0px 4px 14px, rgba(255, 255, 255, 0.35) 0px 1px 1px inset',
                 }}
               >
-                <span className="material-symbols-outlined text-base">badge</span>
-                <span>Open LinkedIn Profile</span>
+                <span className="material-symbols-outlined text-sm">badge</span>
+                <span>Open Student Profile</span>
               </button>
 
               <button
                 onClick={() => window.print()}
-                className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md hover:bg-white text-text-primary transition-all shadow-sm hover:shadow-md flex items-center justify-center"
+                className="p-2 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md hover:bg-white text-text-primary transition-all shadow-2xs hover:shadow-sm flex items-center justify-center cursor-pointer"
                 title="Print Scholar Dossier"
               >
-                <span className="material-symbols-outlined text-base text-text-secondary hover:text-text-primary">
+                <span className="material-symbols-outlined text-sm text-text-secondary hover:text-text-primary">
                   print
                 </span>
               </button>

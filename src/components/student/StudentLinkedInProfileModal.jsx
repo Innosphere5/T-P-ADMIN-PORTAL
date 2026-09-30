@@ -242,7 +242,7 @@ export default function StudentLinkedInProfileModal({
                 </span>
                 <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full bg-[#0077B5]/10 text-[#0077B5] border border-[#0077B5]/25 flex items-center gap-1 font-mono">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#0077B5]" />
-                  LinkedIn Style
+                  Student Profile
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 truncate max-w-[280px] sm:max-w-md">
@@ -289,7 +289,7 @@ export default function StudentLinkedInProfileModal({
               <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#8B1D2C] text-lg">edit_note</span>
-                  <h4 className="text-sm font-bold text-slate-900">Edit Scholar LinkedIn Details</h4>
+                  <h4 className="text-sm font-bold text-slate-900">Edit Scholar Profile Details</h4>
                 </div>
                 <span className="text-[11px] text-slate-400">Admin Live Override</span>
               </div>
