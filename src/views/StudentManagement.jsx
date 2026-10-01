@@ -3,11 +3,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import StudentLinkedInProfileModal from '../components/student/StudentLinkedInProfileModal';
+import StudentDossierModal from '../components/student/StudentDossierModal';
+import { supabase } from '../lib/supabaseClient';
 
 export default function StudentManagement({ globalSearch = '' }) {
   const [requests, setRequests] = useState([]);
   const [selectedKey, setSelectedKey] = useState(null);
   const [linkedInStudent, setLinkedInStudent] = useState(null);
+  const [dossierStudent, setDossierStudent] = useState(null);
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('all');
@@ -44,10 +47,26 @@ export default function StudentManagement({ globalSearch = '' }) {
     };
 
     fetchStudents();
-    const interval = setInterval(fetchStudents, 3500);
+    const interval = setInterval(fetchStudents, 4000);
+
+    // Supabase Realtime channel for instant real-time sync
+    const channel = supabase
+      .channel('admin-student-management-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'students' }, () => {
+        fetchStudents();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_profiles' }, () => {
+        fetchStudents();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_academic_summary' }, () => {
+        fetchStudents();
+      })
+      .subscribe();
+
     return () => {
       isMounted = false;
       clearInterval(interval);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -75,6 +94,9 @@ export default function StudentManagement({ globalSearch = '' }) {
       revocationReason: record.revocation_reason || null,
       avatar_url: record.avatar_url || record.avatar || null,
       avatarBg: 'bg-tint-maroon text-primary border-rose-200/60',
+      cgpa: record.cgpa != null ? Number(record.cgpa) : null,
+      overall_attendance: record.overall_attendance != null ? Number(record.overall_attendance) : null,
+      backlogs: record.backlogs != null ? Number(record.backlogs) : null,
     };
   }), [requests]);
 
@@ -583,17 +605,19 @@ export default function StudentManagement({ globalSearch = '' }) {
                   <th className="py-3.5 px-4 font-semibold">Department &amp; Year</th>
                   <th className="py-3.5 px-4 font-semibold text-center">Submitted</th>
                   <th className="py-3.5 px-4 font-semibold text-center">Registration Status</th>
+                  <th className="py-3.5 px-4 font-semibold text-center whitespace-nowrap">CGPA</th>
+                  <th className="py-3.5 px-4 font-semibold text-center whitespace-nowrap">Attendance</th>
                   <th className="py-3.5 px-4 font-semibold">Review Reason</th>
                   <th className="py-3.5 px-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border-subtle font-body-default text-body-default">
-                {loading && <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-text-secondary">Loading live student registrations...</td></tr>}
+                {loading && <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">Loading live student registrations...</td></tr>}
                 {!loading && hasSuccessfulSync && filteredStudents.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-text-secondary">No live registrations match these filters.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">No live registrations match these filters.</td></tr>
                 )}
                 {!loading && !hasSuccessfulSync && syncError && (
-                  <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-text-secondary">Student records are unavailable while the database is disconnected.</td></tr>
+                  <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-text-secondary">Student records are unavailable while the database is disconnected.</td></tr>
                 )}
                 {filteredStudents.map((std) => {
                   const isSelected = selectedKey === std.key;
@@ -612,11 +636,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                           <div
                             className={`relative w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 shadow-sm border overflow-hidden ${std.avatarBg}`}
                           >
-                            {std.avatar_url ? (
-                              <img src={std.avatar_url} alt={std.name} className="w-full h-full object-cover" />
-                            ) : (
-                              std.initials
-                            )}
+                            <img src={std.avatar_url || '/default-avatar.png'} alt={std.name} className="w-full h-full object-cover" />
                             {std.verified && (
                               <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full bg-success-green ring-2 ring-white flex items-center justify-center">
                                 <span className="material-symbols-outlined text-[9px] text-white font-bold">
@@ -673,6 +693,26 @@ export default function StudentManagement({ globalSearch = '' }) {
                         )}
                       </td>
 
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap font-mono font-bold text-xs">
+                        {std.cgpa != null ? (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                            {Number(std.cgpa).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">—</span>
+                        )}
+                      </td>
+
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap font-mono font-semibold text-xs">
+                        {std.overall_attendance != null ? (
+                          <span className="text-emerald-700">
+                            {Number(std.overall_attendance).toFixed(1)}%
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-normal">—</span>
+                        )}
+                      </td>
+
                       <td className="py-3.5 px-4 text-xs text-text-secondary">
                         {std.rejectionReason || std.revocationReason || '—'}
                       </td>
@@ -683,19 +723,31 @@ export default function StudentManagement({ globalSearch = '' }) {
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedKey(std.key);
-                              setLinkedInStudent(std);
+                              setDossierStudent(std);
                             }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0077B5]/10 hover:bg-[#0077B5]/20 text-[#0077B5] font-semibold text-xs transition-colors border border-[#0077B5]/25 shadow-2xs"
-                            title="Open Student Profile & Dossier"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary hover:bg-primary/90 text-white font-semibold text-xs transition-colors shadow-2xs"
+                            title="Open Student Dossier & Academics"
                           >
-                            <span className="material-symbols-outlined text-sm">badge</span>
-                            <span>Student Profile</span>
+                            <span className="material-symbols-outlined text-sm">folder_shared</span>
+                            <span>Open Dossier</span>
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedKey(std.key);
                               setLinkedInStudent(std);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#0077B5]/10 hover:bg-[#0077B5]/20 text-[#0077B5] font-semibold text-xs transition-colors border border-[#0077B5]/25 shadow-2xs"
+                            title="Open Student Profile & Overview"
+                          >
+                            <span className="material-symbols-outlined text-sm">badge</span>
+                            <span>Profile</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedKey(std.key);
+                              setDossierStudent(std);
                             }}
                             className="p-1.5 rounded-lg text-text-secondary hover:text-primary hover:bg-white transition-colors"
                             title="View Credentials Vault"
@@ -795,11 +847,7 @@ export default function StudentManagement({ globalSearch = '' }) {
 
             <div className="flex items-center gap-3.5 my-3">
               <div className="relative w-14 h-14 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden shadow-sm shrink-0 flex items-center justify-center">
-                {currentStudent?.avatar_url ? (
-                  <img src={currentStudent.avatar_url} alt={currentStudent.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-lg font-bold text-[#8B1D2C]">{currentStudent?.initials || 'ST'}</span>
-                )}
+                <img src={currentStudent?.avatar_url || '/default-avatar.png'} alt={currentStudent?.name || 'Student photo'} className="w-full h-full object-cover" />
                 <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white" />
               </div>
               <div className="flex-1 min-w-0">
@@ -820,26 +868,45 @@ export default function StudentManagement({ globalSearch = '' }) {
               <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">CGPA Score</span>
                 <span className="text-base font-extrabold text-[#8B1D2C] block mt-0.5">
-                  {Number(currentStudent?.cgpa || 8.65).toFixed(2)}
-                  <span className="text-[10px] text-slate-400 font-normal"> / 10.0</span>
+                  {currentStudent?.cgpa != null ? (
+                    <>
+                      {Number(currentStudent.cgpa).toFixed(2)}
+                      <span className="text-[10px] text-slate-400 font-normal"> / 10.0</span>
+                    </>
+                  ) : (
+                    <span className="text-slate-400 font-normal text-sm">—</span>
+                  )}
                 </span>
               </div>
               <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
-                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Phone Contact</span>
-                <span className="text-xs font-semibold text-slate-800 font-mono truncate block mt-1">
-                  {currentStudent?.phone || '+91 98765 43210'}
+                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Attendance Rate</span>
+                <span className="text-base font-extrabold text-emerald-700 block mt-0.5">
+                  {currentStudent?.overall_attendance != null ? (
+                    `${Number(currentStudent.overall_attendance).toFixed(1)}%`
+                  ) : (
+                    <span className="text-slate-400 font-normal text-sm">—</span>
+                  )}
                 </span>
               </div>
             </div>
 
-            <button
-              onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
-              className="w-full mt-auto py-2.5 px-3 rounded-xl bg-[#0077B5] hover:bg-[#005E93] text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
-            >
-              <span className="material-symbols-outlined text-base">badge</span>
-              <span>Open Full Student Profile &amp; Vault</span>
-              <span className="material-symbols-outlined text-sm">open_in_new</span>
-            </button>
+            <div className="flex flex-col gap-2 mt-auto">
+              <button
+                onClick={() => currentStudent && setDossierStudent(currentStudent)}
+                className="w-full py-2.5 px-3 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+              >
+                <span className="material-symbols-outlined text-base">folder_shared</span>
+                <span>Open Student Dossier &amp; Academics</span>
+                <span className="material-symbols-outlined text-sm">open_in_new</span>
+              </button>
+              <button
+                onClick={() => currentStudent && setLinkedInStudent(currentStudent)}
+                className="w-full py-2 px-3 rounded-xl bg-[#0077B5]/10 hover:bg-[#0077B5]/20 text-[#0077B5] border border-[#0077B5]/25 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">badge</span>
+                <span>LinkedIn Profile &amp; Bio</span>
+              </button>
+            </div>
           </div>
 
           {/* Card 2: Registration Overview (from Image 1) */}
@@ -1216,6 +1283,13 @@ export default function StudentManagement({ globalSearch = '' }) {
         isOpen={!!linkedInStudent}
         student={linkedInStudent}
         onClose={() => setLinkedInStudent(null)}
+      />
+
+      {/* Comprehensive Student Dossier Modal */}
+      <StudentDossierModal
+        isOpen={!!dossierStudent}
+        student={dossierStudent}
+        onClose={() => setDossierStudent(null)}
       />
     </div>
   );

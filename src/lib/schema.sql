@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS public.students (
   reviewed_at TIMESTAMPTZ,
   phone TEXT,
   avatar_url TEXT,
+  banner_url TEXT,
+  headline TEXT,
+  bio TEXT,
   created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );

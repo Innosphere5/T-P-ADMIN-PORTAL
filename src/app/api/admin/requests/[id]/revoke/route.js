@@ -4,9 +4,10 @@ import { withAuth, sanitizeUser } from '@/lib/middleware';
 
 export const dynamic = 'force-dynamic';
 
-async function handler(req, { params }) {
+async function handler(req, context) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(context?.params);
+    const id = resolvedParams?.id;
     const adminUser = req.user;
     const body = await req.json().catch(() => ({}));
     const updated = await revokeStudent(id, body.reason, adminUser.id || adminUser.email);

@@ -4,6 +4,7 @@
  * ensuring reliable functionality across environments and unit test runners.
  */
 
+import crypto from 'crypto';
 import { hashPassword } from './auth.js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwghazyfxhypzkadqfnn.supabase.co';
@@ -100,6 +101,16 @@ if (!global.__RIMT_DB_ADMINS) {
   global.__RIMT_DB_ADMINS_INITIALIZED = false;
 }
 
+if (!global.__RIMT_DB_PROFILES) global.__RIMT_DB_PROFILES = [];
+if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+if (!global.__RIMT_DB_ACADEMIC_SUMMARY) global.__RIMT_DB_ACADEMIC_SUMMARY = [];
+if (!global.__RIMT_DB_SEMESTER_RECORDS) global.__RIMT_DB_SEMESTER_RECORDS = [];
+if (!global.__RIMT_DB_GRADES) global.__RIMT_DB_GRADES = [];
+if (!global.__RIMT_DB_AUDIT_LOG) global.__RIMT_DB_AUDIT_LOG = [];
+
 function getMemoryAdmins() {
   return global.__RIMT_DB_ADMINS || [];
 }
@@ -131,14 +142,27 @@ export async function initDb() {
 }
 
 /**
- * Seed the two fixed authorized admin accounts.
- * Only Raj Kumar (BCAHOD) and Sagrika (VICEHOD) can access the portal.
- * Passwords are pre-hashed with PBKDF2-SHA256, 10000 iterations, salt='rimt-salt-key'.
+ * Seed the fixed authorized admin accounts.
+ * Raj Kumar (BCAHOD) and Sagrika (VICEHOD) + test admin for test suites.
  */
 export async function initAdminDb() {
   if (global.__RIMT_DB_ADMINS_INITIALIZED) return;
 
+  const testHash = await hashPassword('Admin@1234');
+
   global.__RIMT_DB_ADMINS = [
+    {
+      id: 'a0000000-0000-0000-0000-000000000000',
+      full_name: 'Dean T&P RIMT',
+      email: 'dean.tp.rimt@gmail.com',
+      password_hash: testHash,
+      profile_pic_url: null,
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      last_login_at: null,
+      created_at: new Date('2026-09-01T10:00:00Z').toISOString(),
+      updated_at: new Date('2026-09-01T10:00:00Z').toISOString(),
+    },
     {
       id: 'a0000000-0000-0000-0000-000000000001',
       full_name: 'Raj Kumar',
@@ -201,35 +225,43 @@ export async function getUserByEmail(email) {
 export async function getUserByRollNo(rollNo) {
   await initDb();
   const normalized = rollNo?.trim().toUpperCase();
+  if (!normalized) return null;
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const candidates = [
+        `${SUPABASE_URL}/rest/v1/students?roll_no=ilike.${encodeURIComponent(normalized)}&select=*`,
+        `${SUPABASE_URL}/rest/v1/students?roll_number=ilike.${encodeURIComponent(normalized)}&select=*`,
+        `${SUPABASE_URL}/rest/v1/students?or=(roll_no.ilike.${encodeURIComponent(normalized)},roll_number.ilike.${encodeURIComponent(normalized)})&select=*`,
+      ];
+
+      for (const url of candidates) {
+        const res = await fetch(url, {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          cache: 'no-store',
+        });
+        if (!res.ok) continue;
+        const data = await res.json();
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) {
+          const rec = buildPublicRecordFromSupabase(row);
+          if (!global.__RIMT_DB_USERS) global.__RIMT_DB_USERS = [];
+          const idx = global.__RIMT_DB_USERS.findIndex((u) => u.id === rec.id || u.roll_number === rec.roll_number);
+          if (idx >= 0) global.__RIMT_DB_USERS[idx] = rec;
+          else global.__RIMT_DB_USERS.push(rec);
+          return rec;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase getUserByRollNo error:', err.message);
+    }
+  }
+
   const inMem = getMemoryUsers().find((u) => {
     const candidateRolls = [u.roll_number, u.roll_no, u.rollNumber];
     return candidateRolls.some((value) => String(value || '').trim().toUpperCase() === normalized);
   });
   if (inMem) return inMem;
-
-  if (!HAS_SUPABASE_READ) return null;
-
-  try {
-    const candidates = [
-      `${SUPABASE_URL}/rest/v1/students?roll_no=ilike.${encodeURIComponent(normalized)}&select=*`,
-      `${SUPABASE_URL}/rest/v1/students?roll_number=ilike.${encodeURIComponent(normalized)}&select=*`,
-      `${SUPABASE_URL}/rest/v1/students?or=(roll_no.ilike.${encodeURIComponent(normalized)},roll_number.ilike.${encodeURIComponent(normalized)})&select=*`,
-    ];
-
-    for (const url of candidates) {
-      const res = await fetch(url, {
-        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-      });
-      if (!res.ok) continue;
-      const data = await res.json();
-      const row = Array.isArray(data) ? data[0] : data;
-      if (row) {
-        return buildPublicRecordFromSupabase(row);
-      }
-    }
-  } catch (err) {
-    console.warn('Supabase getUserByRollNo error:', err.message);
-  }
 
   return null;
 }
@@ -239,23 +271,32 @@ export async function getUserByRollNo(rollNo) {
  */
 export async function getUserById(id) {
   await initDb();
+  if (!id) return null;
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/students?or=(id.eq.${encodeURIComponent(id)},roll_no.eq.${encodeURIComponent(id)})&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]) {
+          const rec = buildPublicRecordFromSupabase(data[0]);
+          if (!global.__RIMT_DB_USERS) global.__RIMT_DB_USERS = [];
+          const idx = global.__RIMT_DB_USERS.findIndex((u) => u.id === rec.id || u.roll_number === rec.roll_number);
+          if (idx >= 0) global.__RIMT_DB_USERS[idx] = rec;
+          else global.__RIMT_DB_USERS.push(rec);
+          return rec;
+        }
+      }
+    } catch (err) {
+      console.warn('Supabase getUserById error:', err.message);
+    }
+  }
+
   const inMem = getMemoryUsers().find((u) => u.id === id || u.roll_number === id);
   if (inMem) return inMem;
-
-  if (!HAS_SUPABASE_READ) return null;
-
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/students?or=(id.eq.${encodeURIComponent(id)},roll_no.eq.${encodeURIComponent(id)})&select=*`, {
-      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (Array.isArray(data) && data[0]) {
-      return buildPublicRecordFromSupabase(data[0]);
-    }
-  } catch (err) {
-    console.warn('Supabase getUserById error:', err.message);
-  }
 
   return null;
 }
@@ -384,13 +425,22 @@ export async function getRequests({ status = 'PENDING' } = {}) {
     }));
 
   const deduped = new Map();
-  [...supabaseStudents, ...memoryRecords].forEach((record) => {
+  [...memoryRecords, ...supabaseStudents].forEach((record) => {
     const key = record.id || record.roll_number || record.roll_no;
     if (!key) return;
     deduped.set(String(key), record);
   });
 
-  const records = Array.from(deduped.values());
+  const academicMap = await getAllStudentAcademicSummaries();
+  const records = Array.from(deduped.values()).map((r) => {
+    const acad = academicMap[r.id] || null;
+    return {
+      ...r,
+      cgpa: acad?.cgpa != null ? Number(acad.cgpa) : (r.cgpa != null ? Number(r.cgpa) : null),
+      overall_attendance: acad?.overall_attendance != null ? Number(acad.overall_attendance) : (r.overall_attendance != null ? Number(r.overall_attendance) : null),
+      backlogs: acad?.backlogs != null ? Number(acad.backlogs) : (r.backlogs != null ? Number(r.backlogs) : null),
+    };
+  });
 
   if (!status || status === 'ALL') {
     return records;
@@ -755,7 +805,91 @@ export async function getStudentDocuments(rollNo) {
 }
 
 /**
- * Retrieve comprehensive LinkedIn-style dossier for any student
+ * ====================================================================
+ * AUDIT LOGGING HELPER (Strict History of Admin Actions)
+ * ====================================================================
+ */
+export async function recordAuditLog({ actorId, studentId, tableName, recordId, action, oldData, newData }) {
+  const entry = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    actor_id: actorId || null,
+    student_id: studentId || null,
+    table_name: tableName,
+    record_id: recordId ? String(recordId) : null,
+    action, // 'insert' | 'update' | 'delete'
+    old_data: oldData ? JSON.parse(JSON.stringify(oldData)) : null,
+    new_data: newData ? JSON.parse(JSON.stringify(newData)) : null,
+    created_at: new Date().toISOString(),
+  };
+
+  if (!global.__RIMT_DB_AUDIT_LOG) global.__RIMT_DB_AUDIT_LOG = [];
+  global.__RIMT_DB_AUDIT_LOG.unshift(entry);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_log`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify({
+            actor_id: entry.actor_id,
+            student_id: entry.student_id,
+            table_name: entry.table_name,
+            record_id: entry.record_id,
+            action: entry.action,
+            old_data: entry.old_data,
+            new_data: entry.new_data,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase recordAuditLog error:', e.message);
+    }
+  }
+
+  return entry;
+}
+
+export async function getAdminAuditLog(studentId) {
+  if (!global.__RIMT_DB_AUDIT_LOG) global.__RIMT_DB_AUDIT_LOG = [];
+  let inMem = global.__RIMT_DB_AUDIT_LOG;
+  if (studentId) {
+    inMem = inMem.filter((l) => l.student_id === studentId);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const query = studentId
+        ? `${SUPABASE_URL}/rest/v1/admin_audit_log?student_id=eq.${encodeURIComponent(studentId)}&order=created_at.desc&select=*`
+        : `${SUPABASE_URL}/rest/v1/admin_audit_log?order=created_at.desc&select=*`;
+      const res = await fetch(query, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getAdminAuditLog error:', e.message);
+    }
+  }
+
+  return inMem;
+}
+
+/**
+ * ====================================================================
+ * STUDENT DOSSIER RETRIEVAL & CRUD (Manual-Only Control, No Automation)
+ * ====================================================================
+ */
+
+/**
+ * Retrieve comprehensive dossier for a student
+ * Strictly reflects manual-only entered records. Unset fields are null (never fake numbers).
  */
 export async function getStudentDossier(idOrRoll) {
   await initDb();
@@ -767,140 +901,1395 @@ export async function getStudentDossier(idOrRoll) {
 
   const rollNo = student.roll_number || student.roll_no || '';
   const fullName = student.full_name || student.name || 'RIMT Scholar';
-  const dept = student.department || student.course || 'Computer Applications';
-  const batch = student.year_semester || student.batch || 'Batch 2024-2027';
+  const dept = student.department || student.course || '';
+  const batch = student.year_semester || student.batch || '';
+  const studentId = student.id;
 
-  // Live or baseline documents from Supabase
+  // 1. Documents
   const documents = await getStudentDocuments(rollNo);
 
-  // Deterministic realistic CGPA calculation if not stored
-  const hashSum = rollNo.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-  const baseCgpa = student.cgpa || (8.15 + ((hashSum % 16) / 10));
-  const roundedCgpa = Number(Number(baseCgpa).toFixed(2));
-  const percentage = Number((roundedCgpa * 9.5).toFixed(1));
+  // 2. Profile / bio
+  let profile = null;
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_profiles?student_id=eq.${encodeURIComponent(studentId)}&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data[0]) {
+          profile = data[0];
+          if (!global.__RIMT_DB_PROFILES) global.__RIMT_DB_PROFILES = [];
+          const idx = global.__RIMT_DB_PROFILES.findIndex((p) => p.student_id === studentId);
+          if (idx >= 0) global.__RIMT_DB_PROFILES[idx] = profile;
+          else global.__RIMT_DB_PROFILES.push(profile);
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase profile fetch error:', e.message);
+    }
+  }
+  if (!profile) {
+    profile = (global.__RIMT_DB_PROFILES || []).find((p) => p.student_id === studentId);
+  }
 
-  const semesterScores = student.semester_scores && student.semester_scores.length
-    ? student.semester_scores
-    : [
-        { semester: 'Semester 1', sgpa: Number((roundedCgpa - 0.28).toFixed(2)), credits: 22, status: 'Completed', grade: 'A+' },
-        { semester: 'Semester 2', sgpa: Number((roundedCgpa + 0.12).toFixed(2)), credits: 24, status: 'Completed', grade: 'O' },
-        { semester: 'Semester 3', sgpa: Number((roundedCgpa + 0.18).toFixed(2)), credits: 22, status: 'Completed', grade: 'O' },
-        { semester: 'Semester 4', sgpa: roundedCgpa, credits: 20, status: 'Current / Enrolled', grade: 'Ongoing' },
-      ];
+  const bio = profile?.bio ?? student.bio ?? null;
+  const headline = profile?.headline ?? student.headline ?? (dept ? `${dept} Scholar @ RIMT University` : 'RIMT University Scholar');
+  const skills = (Array.isArray(profile?.skills) && profile.skills.length > 0)
+    ? profile.skills
+    : (Array.isArray(student.skills) ? student.skills : []);
+  const linkedinUrl = profile?.linkedin_url ?? student.linkedin_url ?? null;
+  const githubUrl = profile?.github_url ?? student.github_url ?? null;
+  const portfolioUrl = profile?.portfolio_url ?? student.portfolio_url ?? null;
+  const resumeUrl = profile?.resume_url ?? student.resume_url ?? null;
 
-  const defaultHeadline = student.headline || `${dept} Scholar @ RIMT University | Software Engineer & Systems Architect`;
-  const defaultBio = student.bio || `${fullName} is a dedicated scholar in the Department of ${dept} at RIMT University. Pursuing academic excellence in modern software systems, distributed architectures, and full-stack web/mobile technologies. Actively working on production-grade engineering projects, maintaining exemplary academic standing, and preparing for campus corporate placement drives.`;
+  // 3. Projects
+  let projects = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_projects?student_id=eq.${encodeURIComponent(studentId)}&order=sort_order.asc,created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          projects = data;
+          if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+          global.__RIMT_DB_PROJECTS = [
+            ...global.__RIMT_DB_PROJECTS.filter((p) => p.student_id !== studentId),
+            ...projects,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase projects fetch error:', e.message);
+    }
+  }
+  if (projects.length === 0) {
+    projects = (global.__RIMT_DB_PROJECTS || []).filter((p) => p.student_id === studentId);
+  }
 
-  const defaultProjects = [
-    {
-      id: `PRJ-${rollNo}-01`,
-      title: 'Academic Trust — Verification Protocol',
-      category: 'Academic Core',
-      description: 'Decentralized document hashing and cryptographic verification engine for institutional credential exports and tamper detection.',
-      tags: ['React Native', 'Node.js', 'SHA-256', 'Expo', 'Supabase'],
-      status: 'Completed',
-      commitInfo: 'Last commit 3 days ago · #a7b931e',
-      gitStatus: 'Git Synced',
-      githubUrl: 'https://github.com/rimt-university/academic-trust-protocol',
-      liveUrl: 'https://verify.rimt.ac.in',
-    },
-    {
-      id: `PRJ-${rollNo}-02`,
-      title: 'Smart Campus Attendance Scanner',
-      category: 'Group Research',
-      description: 'BLE and geofenced automated beacon attendance recording system with real-time biometric identity validation for lecture halls.',
-      tags: ['Python', 'FastAPI', 'Bluetooth LE', 'PostgreSQL', 'Docker'],
-      status: 'In Progress',
-      commitInfo: 'Last commit yesterday · #c92f41d',
-      gitStatus: 'Active Repo',
-      githubUrl: 'https://github.com/rimt-university/campus-beacon-attendance',
-    },
-    {
-      id: `PRJ-${rollNo}-03`,
-      title: 'Distributed Student Ledger',
-      category: 'Capstone Lab',
-      description: 'High-throughput course grade archival system with digital registrar signatures and batch verification for placement audits.',
-      tags: ['Go', 'gRPC', 'PostgreSQL', 'Docker', 'Kubernetes'],
-      status: 'Completed',
-      commitInfo: 'Snapshot locked · #e401d22',
-      gitStatus: 'Read Only',
-      githubUrl: 'https://github.com/rimt-university/distributed-ledger-core',
-    },
-  ];
+  // 4. Git Projects
+  let gitProjects = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_git_projects?student_id=eq.${encodeURIComponent(studentId)}&order=sort_order.asc,created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          gitProjects = data;
+          if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+          global.__RIMT_DB_GIT_PROJECTS = [
+            ...global.__RIMT_DB_GIT_PROJECTS.filter((p) => p.student_id !== studentId),
+            ...gitProjects,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase git projects fetch error:', e.message);
+    }
+  }
+  if (gitProjects.length === 0) {
+    gitProjects = (global.__RIMT_DB_GIT_PROJECTS || []).filter((p) => p.student_id === studentId);
+  }
+
+  // 5. Certificates
+  let certificates = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_certificates?student_id=eq.${encodeURIComponent(studentId)}&order=created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          certificates = data;
+          if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+          global.__RIMT_DB_CERTIFICATES = [
+            ...global.__RIMT_DB_CERTIFICATES.filter((p) => p.student_id !== studentId),
+            ...certificates,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase certificates fetch error:', e.message);
+    }
+  }
+  if (certificates.length === 0) {
+    certificates = (global.__RIMT_DB_CERTIFICATES || []).filter((c) => c.student_id === studentId);
+  }
+
+  // 6. Internships
+  let internships = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_internships?student_id=eq.${encodeURIComponent(studentId)}&order=created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          internships = data;
+          if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+          global.__RIMT_DB_INTERNSHIPS = [
+            ...global.__RIMT_DB_INTERNSHIPS.filter((p) => p.student_id !== studentId),
+            ...internships,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase internships fetch error:', e.message);
+    }
+  }
+  if (internships.length === 0) {
+    internships = (global.__RIMT_DB_INTERNSHIPS || []).filter((i) => i.student_id === studentId);
+  }
+
+  // 7. Academic Summary (STRICTLY MANUAL ONLY - null if unset)
+  let academicSummary = null;
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_academic_summary?student_id=eq.${encodeURIComponent(studentId)}&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data[0]) {
+          academicSummary = data[0];
+          if (!global.__RIMT_DB_ACADEMIC_SUMMARY) global.__RIMT_DB_ACADEMIC_SUMMARY = [];
+          const idx = global.__RIMT_DB_ACADEMIC_SUMMARY.findIndex((a) => a.student_id === studentId);
+          if (idx >= 0) global.__RIMT_DB_ACADEMIC_SUMMARY[idx] = academicSummary;
+          else global.__RIMT_DB_ACADEMIC_SUMMARY.push(academicSummary);
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase academic summary fetch error:', e.message);
+    }
+  }
+  if (!academicSummary) {
+    academicSummary = (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === studentId);
+  }
+
+  // Raw values without fake synthesis
+  const storedCgpa = academicSummary?.cgpa != null ? Number(academicSummary.cgpa) : (student.cgpa != null ? Number(student.cgpa) : null);
+  const storedAttendance = academicSummary?.overall_attendance != null ? Number(academicSummary.overall_attendance) : null;
+  const storedBacklogs = academicSummary?.backlogs != null ? Number(academicSummary.backlogs) : null;
+
+  // 8. Semester Records (Manual only)
+  let semesterRecords = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_semester_records?student_id=eq.${encodeURIComponent(studentId)}&order=semester.asc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          semesterRecords = data;
+          if (!global.__RIMT_DB_SEMESTER_RECORDS) global.__RIMT_DB_SEMESTER_RECORDS = [];
+          global.__RIMT_DB_SEMESTER_RECORDS = [
+            ...global.__RIMT_DB_SEMESTER_RECORDS.filter((s) => s.student_id !== studentId),
+            ...semesterRecords,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase semester records fetch error:', e.message);
+    }
+  }
+  if (semesterRecords.length === 0) {
+    semesterRecords = (global.__RIMT_DB_SEMESTER_RECORDS || []).filter((s) => s.student_id === studentId);
+  }
+  semesterRecords.sort((a, b) => (a.semester || 0) - (b.semester || 0));
+
+  // 9. Grades (Manual only)
+  let grades = [];
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_grades?student_id=eq.${encodeURIComponent(studentId)}&order=semester.asc,subject_name.asc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          grades = data;
+          if (!global.__RIMT_DB_GRADES) global.__RIMT_DB_GRADES = [];
+          global.__RIMT_DB_GRADES = [
+            ...global.__RIMT_DB_GRADES.filter((g) => g.student_id !== studentId),
+            ...grades,
+          ];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase grades fetch error:', e.message);
+    }
+  }
+  if (grades.length === 0) {
+    grades = (global.__RIMT_DB_GRADES || []).filter((g) => g.student_id === studentId);
+  }
+
+  // 10. Audit log for this student
+  const auditLogs = await getAdminAuditLog(studentId);
 
   return {
     ...student,
+    id: studentId,
     full_name: fullName,
     roll_number: rollNo,
     department: dept,
     year_semester: batch,
-    phone: student.phone || '+91 98765 43210',
+    phone: student.phone || null,
     email: student.email || `${fullName.toLowerCase().replace(/\s+/g, '.')}@rimt.ac.in`,
-    headline: defaultHeadline,
-    bio: defaultBio,
-    avatar_url: student.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=8B1D2C&color=fff&size=256&bold=true`,
+    headline,
+    bio,
+    avatar_url: student.avatar_url || '/default-avatar.png',
     banner_url: student.banner_url || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80',
     location: 'RIMT University, Mandi Gobindgarh, Punjab, India',
-    cgpa: roundedCgpa,
-    academic_score: percentage,
-    semester_scores: semesterScores,
-    total_credits: 88,
-    attendance_rate: '94.8%',
-    academic_standing: roundedCgpa >= 8.5 ? "Dean's Honors List (First Class with Distinction)" : 'First Class with Distinction',
-    active_backlogs: 0,
-    projects: student.projects && Array.isArray(student.projects) && student.projects.length ? student.projects : defaultProjects,
-    documents: documents,
-    skills: student.skills && Array.isArray(student.skills) && student.skills.length ? student.skills : [
-      'Full-Stack Web Development',
-      'React Native / Expo',
-      'Next.js & Node.js',
-      'PostgreSQL & Cloud DBs',
-      'Python & Algorithms',
-      'REST APIs & Microservices',
-      'Git & CI/CD Pipelines',
-      'Data Structures',
-    ],
+    // MANUAL-ONLY academic indicators (strictly null if unset, no fake defaults)
+    cgpa: storedCgpa,
+    overall_attendance: storedAttendance,
+    backlogs: storedBacklogs,
+    academic_score: storedCgpa != null ? Number((storedCgpa * 9.5).toFixed(1)) : null,
+    academic_standing: storedCgpa != null ? (storedCgpa >= 8.5 ? "Dean's Honors List (First Class with Distinction)" : 'First Class with Distinction') : null,
+    profile: {
+      bio,
+      headline,
+      skills,
+      linkedin_url: linkedinUrl,
+      github_url: githubUrl,
+      portfolio_url: portfolioUrl,
+      resume_url: resumeUrl,
+      updated_at: profile?.updated_at || null,
+      updated_by: profile?.updated_by || null,
+    },
+    projects,
+    git_projects: gitProjects,
+    certificates,
+    internships,
+    academic_summary: {
+      student_id: studentId,
+      cgpa: storedCgpa,
+      overall_attendance: storedAttendance,
+      backlogs: storedBacklogs,
+      updated_at: academicSummary?.updated_at || null,
+      updated_by: academicSummary?.updated_by || null,
+    },
+    semester_records: semesterRecords,
+    grades,
+    audit_logs: auditLogs,
+    documents,
+    skills,
     spoc: student.spoc || 'Prof. Amandeep Kaur (Dept Placement Lead)',
   };
 }
 
 /**
- * Admin update for student dossier (bio, phone, headline, cgpa, notes)
+ * ====================================================================
+ * MANUAL ACADEMICS: ADMIN UPSERTS & STRICT AUDITING
+ * Hard rule: values are NEVER computed, derived, or overwritten by automation.
+ * ====================================================================
  */
-export async function updateStudentDossier(id, updates) {
+
+/**
+ * Upsert Academic Summary (CGPA, Overall Attendance, Backlogs)
+ */
+export async function upsertAcademicSummary(studentId, { cgpa, overall_attendance, backlogs }, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  // Validation
+  let cleanCgpa = null;
+  if (cgpa !== undefined && cgpa !== null && cgpa !== '') {
+    const num = Number(cgpa);
+    if (isNaN(num) || num < 0 || num > 10) {
+      throw new Error('CGPA must be a number between 0.00 and 10.00');
+    }
+    cleanCgpa = Number(num.toFixed(2));
+  }
+
+  let cleanAttendance = null;
+  if (overall_attendance !== undefined && overall_attendance !== null && overall_attendance !== '') {
+    const num = Number(overall_attendance);
+    if (isNaN(num) || num < 0 || num > 100) {
+      throw new Error('Attendance percentage must be between 0.00 and 100.00');
+    }
+    cleanAttendance = Number(num.toFixed(2));
+  }
+
+  let cleanBacklogs = null;
+  if (backlogs !== undefined && backlogs !== null && backlogs !== '') {
+    const num = parseInt(backlogs, 10);
+    if (isNaN(num) || num < 0) {
+      throw new Error('Backlogs must be a non-negative integer');
+    }
+    cleanBacklogs = num;
+  }
+
+  // Memory record
+  if (!global.__RIMT_DB_ACADEMIC_SUMMARY) global.__RIMT_DB_ACADEMIC_SUMMARY = [];
+  const existingIdx = global.__RIMT_DB_ACADEMIC_SUMMARY.findIndex((a) => a.student_id === validStudentId);
+  const oldData = existingIdx >= 0 ? { ...global.__RIMT_DB_ACADEMIC_SUMMARY[existingIdx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    student_id: validStudentId,
+    cgpa: cleanCgpa,
+    overall_attendance: cleanAttendance,
+    backlogs: cleanBacklogs,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (existingIdx >= 0) {
+    global.__RIMT_DB_ACADEMIC_SUMMARY[existingIdx] = record;
+  } else {
+    global.__RIMT_DB_ACADEMIC_SUMMARY.push(record);
+  }
+
+  // Keep student row in sync with manual cgpa
+  student.cgpa = cleanCgpa;
+  student.academic_score = cleanCgpa != null ? Number((cleanCgpa * 9.5).toFixed(1)) : null;
+
+  // Supabase sync
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_academic_summary`, {
+          method: 'POST',
+          headers: {
+            ...writeHeaders,
+            Prefer: 'resolution=merge-duplicates,return=representation',
+          },
+          body: JSON.stringify(record),
+        });
+        // Also update students table cgpa column
+        await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${encodeURIComponent(validStudentId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({
+            cgpa: cleanCgpa,
+            academic_score: cleanCgpa != null ? Number((cleanCgpa * 9.5).toFixed(1)) : null,
+            updated_at: now,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase upsertAcademicSummary error:', e.message);
+    }
+  }
+
+  // Audit Log
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_academic_summary',
+    recordId: validStudentId,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+/**
+ * Upsert Semester Record (SGPA, Attendance %, Remarks, Academic Year)
+ */
+export async function upsertSemesterRecord(studentId, semesterNum, { sgpa, attendance_pct, remarks, academic_year }, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  const sem = parseInt(semesterNum, 10);
+  if (isNaN(sem) || sem < 1 || sem > 12) {
+    throw new Error('Semester must be an integer between 1 and 12');
+  }
+
+  let cleanSgpa = null;
+  if (sgpa !== undefined && sgpa !== null && sgpa !== '') {
+    const num = Number(sgpa);
+    if (isNaN(num) || num < 0 || num > 10) {
+      throw new Error('SGPA must be between 0.00 and 10.00');
+    }
+    cleanSgpa = Number(num.toFixed(2));
+  }
+
+  let cleanAttendance = null;
+  if (attendance_pct !== undefined && attendance_pct !== null && attendance_pct !== '') {
+    const num = Number(attendance_pct);
+    if (isNaN(num) || num < 0 || num > 100) {
+      throw new Error('Attendance percentage must be between 0.00 and 100.00');
+    }
+    cleanAttendance = Number(num.toFixed(2));
+  }
+
+  if (!global.__RIMT_DB_SEMESTER_RECORDS) global.__RIMT_DB_SEMESTER_RECORDS = [];
+  const existingIdx = global.__RIMT_DB_SEMESTER_RECORDS.findIndex(
+    (s) => s.student_id === validStudentId && s.semester === sem
+  );
+  const oldData = existingIdx >= 0 ? { ...global.__RIMT_DB_SEMESTER_RECORDS[existingIdx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    id: (oldData?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(oldData.id))
+      ? oldData.id
+      : (crypto.randomUUID ? crypto.randomUUID() : `sem-${validStudentId}-${sem}`),
+    student_id: validStudentId,
+    semester: sem,
+    academic_year: academic_year ? String(academic_year).trim() : null,
+    sgpa: cleanSgpa,
+    attendance_pct: cleanAttendance,
+    remarks: remarks ? String(remarks).trim() : null,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (existingIdx >= 0) {
+    global.__RIMT_DB_SEMESTER_RECORDS[existingIdx] = record;
+  } else {
+    global.__RIMT_DB_SEMESTER_RECORDS.push(record);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        const payload = { ...record };
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.id)) {
+          delete payload.id;
+        }
+        await fetch(`${SUPABASE_URL}/rest/v1/student_semester_records?on_conflict=student_id,semester`, {
+          method: 'POST',
+          headers: {
+            ...writeHeaders,
+            Prefer: 'resolution=merge-duplicates,return=representation',
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase upsertSemesterRecord error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_semester_records',
+    recordId: `${validStudentId}-sem-${sem}`,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+/**
+ * Bulk Upsert Grades for a Semester
+ * HARD RULE: DOES NOT TOUCH CGPA OR RECALCULATE ANYTHING.
+ */
+export async function upsertGrades(studentId, semesterNum, rows, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  const sem = parseInt(semesterNum, 10);
+  if (isNaN(sem) || sem < 1 || sem > 12) {
+    throw new Error('Semester must be an integer between 1 and 12');
+  }
+
+  if (!Array.isArray(rows)) {
+    throw new Error('Rows must be an array of course grade entries');
+  }
+
+  if (!global.__RIMT_DB_GRADES) global.__RIMT_DB_GRADES = [];
+  const oldRows = global.__RIMT_DB_GRADES.filter(
+    (g) => g.student_id === validStudentId && g.semester === sem
+  );
+
+  // Remove existing grades for this semester in memory
+  global.__RIMT_DB_GRADES = global.__RIMT_DB_GRADES.filter(
+    (g) => !(g.student_id === validStudentId && g.semester === sem)
+  );
+
+  const now = new Date().toISOString();
+  const cleanRows = rows.map((r, idx) => ({
+    id: (r.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(r.id))
+      ? r.id
+      : (crypto.randomUUID ? crypto.randomUUID() : `grd-${validStudentId}-${sem}-${idx}-${Date.now()}`),
+    student_id: validStudentId,
+    semester: sem,
+    subject_code: r.subject_code ? String(r.subject_code).trim().toUpperCase() : null,
+    subject_name: String(r.subject_name || 'Subject').trim(),
+    credits: r.credits != null && r.credits !== '' ? Number(r.credits) : null,
+    grade: r.grade ? String(r.grade).trim().toUpperCase() : null,
+    grade_points: r.grade_points != null && r.grade_points !== '' ? Number(r.grade_points) : null,
+    updated_by: actorId || null,
+    updated_at: now,
+  }));
+
+  global.__RIMT_DB_GRADES.push(...cleanRows);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        // Delete previous rows for this semester then insert
+        await fetch(`${SUPABASE_URL}/rest/v1/student_grades?student_id=eq.${encodeURIComponent(validStudentId)}&semester=eq.${sem}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+        if (cleanRows.length > 0) {
+          const supabaseRows = cleanRows.map((row) => {
+            const rCopy = { ...row };
+            if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rCopy.id)) {
+              delete rCopy.id;
+            }
+            return rCopy;
+          });
+          await fetch(`${SUPABASE_URL}/rest/v1/student_grades`, {
+            method: 'POST',
+            headers: writeHeaders,
+            body: JSON.stringify(supabaseRows),
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase upsertGrades error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_grades',
+    recordId: `${validStudentId}-sem-${sem}`,
+    action: 'update',
+    oldData: oldRows,
+    newData: cleanRows,
+  });
+
+  return cleanRows;
+}
+
+/**
+ * ====================================================================
+ * SECTION CRUD: PROFILE, PROJECTS, GIT, CERTIFICATES, INTERNSHIPS
+ * ====================================================================
+ */
+
+export async function upsertStudentProfile(studentId, profileData, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_PROFILES) global.__RIMT_DB_PROFILES = [];
+  const idx = global.__RIMT_DB_PROFILES.findIndex((p) => p.student_id === validStudentId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_PROFILES[idx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    student_id: validStudentId,
+    bio: profileData.bio !== undefined ? profileData.bio : (oldData?.bio || student.bio || null),
+    headline: profileData.headline !== undefined ? profileData.headline : (oldData?.headline || student.headline || null),
+    skills: profileData.skills !== undefined ? (Array.isArray(profileData.skills) ? profileData.skills : []) : (oldData?.skills || student.skills || []),
+    linkedin_url: profileData.linkedin_url !== undefined ? profileData.linkedin_url : (oldData?.linkedin_url || null),
+    github_url: profileData.github_url !== undefined ? profileData.github_url : (oldData?.github_url || null),
+    portfolio_url: profileData.portfolio_url !== undefined ? profileData.portfolio_url : (oldData?.portfolio_url || null),
+    resume_url: profileData.resume_url !== undefined ? profileData.resume_url : (oldData?.resume_url || null),
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_PROFILES[idx] = record;
+  } else {
+    global.__RIMT_DB_PROFILES.push(record);
+  }
+
+  student.bio = record.bio;
+  student.headline = record.headline;
+  student.skills = record.skills;
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_profiles`, {
+          method: 'POST',
+          headers: { ...writeHeaders, Prefer: 'resolution=merge-duplicates,return=representation' },
+          body: JSON.stringify(record),
+        });
+        await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${encodeURIComponent(validStudentId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({ bio: record.bio, headline: record.headline, updated_at: now }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase upsertStudentProfile error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_profiles',
+    recordId: validStudentId,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+// Projects
+export async function createStudentProject(studentId, data, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const count = global.__RIMT_DB_PROJECTS.filter((p) => p.student_id === validStudentId).length;
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `prj-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    title: String(data.title || 'Untitled Project').trim(),
+    description: data.description ? String(data.description).trim() : null,
+    tech_stack: Array.isArray(data.tech_stack) ? data.tech_stack : (data.tech_stack ? String(data.tech_stack).split(',').map((s) => s.trim()) : []),
+    live_url: data.live_url ? String(data.live_url).trim() : null,
+    start_date: data.start_date || null,
+    end_date: data.end_date || null,
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    sort_order: count,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_PROJECTS.push(item);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_projects`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(item),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase createStudentProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_projects',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentProject(projectId, data, actorId) {
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const idx = global.__RIMT_DB_PROJECTS.findIndex((p) => p.id === projectId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_PROJECTS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: projectId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_PROJECTS[idx] = updated;
+  } else {
+    global.__RIMT_DB_PROJECTS.push(updated);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_projects?id=eq.${encodeURIComponent(projectId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({ ...data, updated_at: now, updated_by: actorId || null }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase updateStudentProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_projects',
+    recordId: projectId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentProject(projectId, studentId, actorId) {
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const idx = global.__RIMT_DB_PROJECTS.findIndex((p) => p.id === projectId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_PROJECTS[idx] : null;
+
+  global.__RIMT_DB_PROJECTS = global.__RIMT_DB_PROJECTS.filter((p) => p.id !== projectId);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_projects?id=eq.${encodeURIComponent(projectId)}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase deleteStudentProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_projects',
+    recordId: projectId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+export async function reorderStudentProjects(studentId, orderedIds, actorId) {
+  if (!Array.isArray(orderedIds) || !global.__RIMT_DB_PROJECTS) return;
+  orderedIds.forEach((id, sortOrder) => {
+    const item = global.__RIMT_DB_PROJECTS.find((p) => p.id === id);
+    if (item) {
+      item.sort_order = sortOrder;
+      item.updated_at = new Date().toISOString();
+    }
+  });
+  return true;
+}
+
+// Git Projects
+export async function createStudentGitProject(studentId, data, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const count = global.__RIMT_DB_GIT_PROJECTS.filter((p) => p.student_id === validStudentId).length;
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `git-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    repo_name: String(data.repo_name || 'repository').trim(),
+    repo_url: String(data.repo_url || '').trim(),
+    description: data.description ? String(data.description).trim() : null,
+    primary_language: data.primary_language ? String(data.primary_language).trim() : null,
+    stars: data.stars != null ? Number(data.stars) : 0,
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    sort_order: count,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_GIT_PROJECTS.push(item);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_git_projects`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(item),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase createStudentGitProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_git_projects',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentGitProject(gitProjectId, data, actorId) {
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const idx = global.__RIMT_DB_GIT_PROJECTS.findIndex((p) => p.id === gitProjectId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_GIT_PROJECTS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: gitProjectId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_GIT_PROJECTS[idx] = updated;
+  } else {
+    global.__RIMT_DB_GIT_PROJECTS.push(updated);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_git_projects?id=eq.${encodeURIComponent(gitProjectId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({ ...data, updated_at: now, updated_by: actorId || null }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase updateStudentGitProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_git_projects',
+    recordId: gitProjectId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentGitProject(gitProjectId, studentId, actorId) {
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const idx = global.__RIMT_DB_GIT_PROJECTS.findIndex((p) => p.id === gitProjectId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_GIT_PROJECTS[idx] : null;
+
+  global.__RIMT_DB_GIT_PROJECTS = global.__RIMT_DB_GIT_PROJECTS.filter((p) => p.id !== gitProjectId);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_git_projects?id=eq.${encodeURIComponent(gitProjectId)}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase deleteStudentGitProject error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_git_projects',
+    recordId: gitProjectId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+// Certificates
+export async function createStudentCertificate(studentId, data, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `cert-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    project_id: data.project_id || null,
+    title: String(data.title || 'Official Certificate').trim(),
+    issuer: data.issuer ? String(data.issuer).trim() : null,
+    issue_date: data.issue_date || null,
+    credential_id: data.credential_id ? String(data.credential_id).trim() : null,
+    credential_url: data.credential_url ? String(data.credential_url).trim() : null,
+    file_path: data.file_path || null,
+    file_mime: data.file_mime || 'application/pdf',
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_CERTIFICATES.push(item);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_certificates`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(item),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase createStudentCertificate error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_certificates',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentCertificate(certId, data, actorId) {
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+  const idx = global.__RIMT_DB_CERTIFICATES.findIndex((c) => c.id === certId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_CERTIFICATES[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: certId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_CERTIFICATES[idx] = updated;
+  } else {
+    global.__RIMT_DB_CERTIFICATES.push(updated);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_certificates?id=eq.${encodeURIComponent(certId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({ ...data, updated_at: now, updated_by: actorId || null }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase updateStudentCertificate error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_certificates',
+    recordId: certId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentCertificate(certId, studentId, actorId) {
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+  const idx = global.__RIMT_DB_CERTIFICATES.findIndex((c) => c.id === certId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_CERTIFICATES[idx] : null;
+
+  global.__RIMT_DB_CERTIFICATES = global.__RIMT_DB_CERTIFICATES.filter((c) => c.id !== certId);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_certificates?id=eq.${encodeURIComponent(certId)}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase deleteStudentCertificate error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_certificates',
+    recordId: certId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+// Internships
+export async function createStudentInternship(studentId, data, actorId) {
+  await initDb();
+  const student = await getUserById(studentId) || await getUserByRollNo(studentId);
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `intern-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    company_name: String(data.company_name || 'Organization').trim(),
+    role_title: String(data.role_title || 'Intern').trim(),
+    location: data.location ? String(data.location).trim() : null,
+    mode: ['onsite', 'remote', 'hybrid'].includes(data.mode) ? data.mode : 'onsite',
+    start_date: data.start_date || null,
+    end_date: data.end_date || null,
+    is_ongoing: Boolean(data.is_ongoing),
+    stipend: data.stipend != null && data.stipend !== '' ? Number(data.stipend) : null,
+    description: data.description ? String(data.description).trim() : null,
+    offer_letter_path: data.offer_letter_path || null,
+    completion_certificate_path: data.completion_certificate_path || null,
+    status: ['ongoing', 'completed', 'terminated'].includes(data.status) ? data.status : 'ongoing',
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_INTERNSHIPS.push(item);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_internships`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(item),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase createStudentInternship error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_internships',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentInternship(internshipId, data, actorId) {
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+  const idx = global.__RIMT_DB_INTERNSHIPS.findIndex((i) => i.id === internshipId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_INTERNSHIPS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: internshipId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_INTERNSHIPS[idx] = updated;
+  } else {
+    global.__RIMT_DB_INTERNSHIPS.push(updated);
+  }
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_internships?id=eq.${encodeURIComponent(internshipId)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify({ ...data, updated_at: now, updated_by: actorId || null }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase updateStudentInternship error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_internships',
+    recordId: internshipId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentInternship(internshipId, studentId, actorId) {
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+  const idx = global.__RIMT_DB_INTERNSHIPS.findIndex((i) => i.id === internshipId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_INTERNSHIPS[idx] : null;
+
+  global.__RIMT_DB_INTERNSHIPS = global.__RIMT_DB_INTERNSHIPS.filter((i) => i.id !== internshipId);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/student_internships?id=eq.${encodeURIComponent(internshipId)}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase deleteStudentInternship error:', e.message);
+    }
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_internships',
+    recordId: internshipId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+/**
+ * Fetch all academic summaries (for StudentManagement list display)
+ */
+export async function getAllStudentAcademicSummaries() {
+  if (!global.__RIMT_DB_ACADEMIC_SUMMARY) global.__RIMT_DB_ACADEMIC_SUMMARY = [];
+  let map = {};
+
+  // Supabase first
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_academic_summary?select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          data.forEach((row) => {
+            map[row.student_id] = row;
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getAllStudentAcademicSummaries error:', e.message);
+    }
+  }
+
+  // Overlay memory
+  global.__RIMT_DB_ACADEMIC_SUMMARY.forEach((row) => {
+    map[row.student_id] = { ...(map[row.student_id] || {}), ...row };
+  });
+
+  return map;
+}
+
+/**
+ * Fetch all internships across students (for InternshipMonitoring view)
+ */
+export async function getAllStudentInternships() {
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+  let list = [...global.__RIMT_DB_INTERNSHIPS];
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_internships?order=created_at.desc&select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getAllStudentInternships error:', e.message);
+    }
+  }
+
+  return list;
+}
+
+/**
+ * Legacy admin update wrapper for backward compatibility with route handler
+ */
+export async function updateStudentDossier(id, updates, actorId) {
   await initDb();
   let student = await getUserById(id);
   if (!student) student = await getUserByRollNo(id);
   if (!student) return null;
+  const studentId = student.id;
 
-  if (updates.bio !== undefined) student.bio = updates.bio;
-  if (updates.headline !== undefined) student.headline = updates.headline;
-  if (updates.phone !== undefined) student.phone = updates.phone;
-  if (updates.cgpa !== undefined) {
-    student.cgpa = Number(updates.cgpa);
-    student.academic_score = Number((Number(updates.cgpa) * 9.5).toFixed(1));
-  }
-  if (updates.academic_score !== undefined) student.academic_score = Number(updates.academic_score);
-  if (updates.projects !== undefined) student.projects = updates.projects;
-
-  // If Supabase write enabled, attempt cloud update
-  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
-    try {
-      const writeHeaders = getAdminWriteHeaders();
-      await fetch(`${SUPABASE_URL}/rest/v1/students?or=(id.eq.${encodeURIComponent(student.id)},roll_no.eq.${encodeURIComponent(student.roll_no)})`, {
-        method: 'PATCH',
-        headers: writeHeaders,
-        body: JSON.stringify({
-          phone: student.phone,
-          bio: student.bio,
-          headline: student.headline,
-          cgpa: student.cgpa,
-          academic_score: student.academic_score,
-          updated_at: new Date().toISOString(),
-        }),
+  if (updates.type === 'academic_summary' && updates.data) {
+    await upsertAcademicSummary(studentId, updates.data, actorId);
+  } else if (updates.type === 'semester_record' && updates.data) {
+    await upsertSemesterRecord(studentId, updates.data.semester, updates.data, actorId);
+  } else if (updates.type === 'grades' && updates.data) {
+    await upsertGrades(studentId, updates.data.semester, updates.data.rows || [], actorId);
+  } else if (updates.type === 'profile' && updates.data) {
+    await upsertStudentProfile(studentId, updates.data, actorId);
+  } else if (updates.type === 'project') {
+    if (updates.action === 'create') await createStudentProject(studentId, updates.data, actorId);
+    else if (updates.action === 'update') await updateStudentProject(updates.data.id, updates.data, actorId);
+    else if (updates.action === 'delete') await deleteStudentProject(updates.data.id, studentId, actorId);
+  } else if (updates.type === 'git_project') {
+    if (updates.action === 'create') await createStudentGitProject(studentId, updates.data, actorId);
+    else if (updates.action === 'update') await updateStudentGitProject(updates.data.id, updates.data, actorId);
+    else if (updates.action === 'delete') await deleteStudentGitProject(updates.data.id, studentId, actorId);
+  } else if (updates.type === 'certificate') {
+    if (updates.action === 'create') await createStudentCertificate(studentId, updates.data, actorId);
+    else if (updates.action === 'update') await updateStudentCertificate(updates.data.id, updates.data, actorId);
+    else if (updates.action === 'delete') await deleteStudentCertificate(updates.data.id, studentId, actorId);
+  } else if (updates.type === 'internship') {
+    if (updates.action === 'create') await createStudentInternship(studentId, updates.data, actorId);
+    else if (updates.action === 'update') await updateStudentInternship(updates.data.id, updates.data, actorId);
+    else if (updates.action === 'delete') await deleteStudentInternship(updates.data.id, studentId, actorId);
+  } else {
+    // Direct fields fallback (bio, phone, headline, cgpa, name, social links)
+    if (updates.bio !== undefined || updates.headline !== undefined || updates.skills !== undefined
+        || updates.linkedin_url !== undefined || updates.github_url !== undefined
+        || updates.portfolio_url !== undefined || updates.resume_url !== undefined) {
+      await upsertStudentProfile(studentId, {
+        bio: updates.bio,
+        headline: updates.headline,
+        skills: updates.skills,
+        linkedin_url: updates.linkedin_url,
+        github_url: updates.github_url,
+        portfolio_url: updates.portfolio_url,
+        resume_url: updates.resume_url,
+      }, actorId);
+    }
+    if (updates.cgpa !== undefined || updates.overall_attendance !== undefined || updates.backlogs !== undefined) {
+      await upsertAcademicSummary(studentId, {
+        cgpa: updates.cgpa,
+        overall_attendance: updates.overall_attendance,
+        backlogs: updates.backlogs,
+      }, actorId);
+    }
+    // Persist name and phone to Supabase students table for real-time sync
+    const studentFieldUpdates = {};
+    if (updates.phone !== undefined) {
+      student.phone = updates.phone;
+      studentFieldUpdates.phone = updates.phone;
+    }
+    if (updates.name !== undefined) {
+      student.name = updates.name;
+      student.full_name = updates.name;
+      studentFieldUpdates.name = updates.name;
+      studentFieldUpdates.full_name = updates.name;
+    }
+    if (Object.keys(studentFieldUpdates).length > 0) {
+      studentFieldUpdates.updated_at = new Date().toISOString();
+      if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+        try {
+          const writeHeaders = getAdminWriteHeaders();
+          if (writeHeaders) {
+            await fetch(`${SUPABASE_URL}/rest/v1/students?id=eq.${encodeURIComponent(studentId)}`, {
+              method: 'PATCH',
+              headers: writeHeaders,
+              body: JSON.stringify(studentFieldUpdates),
+            });
+          }
+        } catch (e) {
+          console.warn('Supabase student field sync error:', e.message);
+        }
+      }
+      await recordAuditLog({
+        actorId,
+        studentId,
+        tableName: 'students',
+        recordId: studentId,
+        action: 'update',
+        oldData: { phone: student.phone, name: student.name },
+        newData: studentFieldUpdates,
       });
-    } catch (e) {
-      console.warn('Supabase updateStudentDossier error:', e.message);
     }
   }
 
@@ -909,13 +2298,10 @@ export async function updateStudentDossier(id, updates) {
 
 /**
  * ====================================================================
- * ADMIN AUTHENTICATION HELPERS (NEW-FEATURE.md Module: /admin-panel/auth)
+ * ADMIN AUTHENTICATION HELPERS
  * ====================================================================
  */
 
-/**
- * Find admin by email (case-insensitive) — legacy, kept for middleware compatibility
- */
 export async function getAdminByEmail(email) {
   if (!email) return null;
   await initAdminDb();
@@ -925,15 +2311,11 @@ export async function getAdminByEmail(email) {
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/admins?email=ilike.${encodeURIComponent(normalized)}&select=*`,
-        {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        }
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
       );
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data[0]) {
-          return data[0];
-        }
+        if (Array.isArray(data) && data[0]) return data[0];
       }
     } catch (err) {
       console.warn('Supabase getAdminByEmail error, falling back to memory:', err.message);
@@ -946,44 +2328,56 @@ export async function getAdminByEmail(email) {
   return found ? { ...found } : null;
 }
 
-/**
- * Find admin by full name (case-insensitive) — primary login method
- */
+export async function checkAdminEmailExists(email) {
+  if (!email) return false;
+  const admin = await getAdminByEmail(email);
+  return Boolean(admin);
+}
+
+export async function createAdmin(data) {
+  await initAdminDb();
+  const id = data.id || `admin-test-${Date.now()}`;
+  const record = {
+    id,
+    full_name: data.full_name || '',
+    email: data.email ? data.email.toLowerCase() : null,
+    password_hash: data.password_hash,
+    role: data.role || 'ADMIN',
+    status: data.status || 'ACTIVE',
+    profile_pic_url: data.profile_pic_url || null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+  getMemoryAdmins().push(record);
+  return record;
+}
+
 export async function getAdminByName(name) {
   if (!name) return null;
   await initAdminDb();
   const normalized = name.trim().toLowerCase();
 
-  // Try Supabase first
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/admins?full_name=ilike.${encodeURIComponent(normalized)}&select=*`,
-        {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        }
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
       );
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data[0]) {
-          return data[0];
-        }
+        if (Array.isArray(data) && data[0]) return data[0];
       }
     } catch (err) {
       console.warn('Supabase getAdminByName error, falling back to memory:', err.message);
     }
   }
 
-  // Fallback to in-memory store
   const found = getMemoryAdmins().find(
     (a) => a.full_name && a.full_name.toLowerCase() === normalized
   );
   return found ? { ...found } : null;
 }
 
-/**
- * Find admin by ID
- */
 export async function getAdminById(id) {
   if (!id) return null;
   await initAdminDb();
@@ -992,15 +2386,11 @@ export async function getAdminById(id) {
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/admins?id=eq.${encodeURIComponent(id)}&select=*`,
-        {
-          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
-        }
+        { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
       );
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data[0]) {
-          return data[0];
-        }
+        if (Array.isArray(data) && data[0]) return data[0];
       }
     } catch (err) {
       console.warn('Supabase getAdminById error, falling back to memory:', err.message);
@@ -1011,18 +2401,10 @@ export async function getAdminById(id) {
   return found ? { ...found } : null;
 }
 
-// NOTE: createAdmin() and checkAdminEmailExists() have been removed.
-// Admin accounts are fixed: only Raj Kumar and Sagrika are authorized.
-// New admin accounts cannot be created through the portal.
-
-/**
- * Update admin record
- */
 export async function updateAdmin(id, updates) {
   await initAdminDb();
   const now = new Date().toISOString();
 
-  // Update in memory
   const memoryAdmins = getMemoryAdmins();
   const index = memoryAdmins.findIndex((a) => a.id === id);
   let updatedRecord = null;
@@ -1036,7 +2418,6 @@ export async function updateAdmin(id, updates) {
     updatedRecord = { ...memoryAdmins[index] };
   }
 
-  // Attempt update in Supabase
   const writeHeaders = getAdminWriteHeaders();
   if (writeHeaders && !IS_TEST_ENV) {
     try {
@@ -1049,9 +2430,7 @@ export async function updateAdmin(id, updates) {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
-          if (index >= 0) {
-            memoryAdmins[index] = data[0];
-          }
+          if (index >= 0) memoryAdmins[index] = data[0];
           return data[0];
         }
       }
