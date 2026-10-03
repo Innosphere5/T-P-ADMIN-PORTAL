@@ -476,20 +476,11 @@ export default function OnboardingApprovals({ globalSearch = '' }) {
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
-                            {student.avatar_url || student.avatar ? (
-                              <img
-                                src={student.avatar_url || student.avatar}
-                                alt={student.full_name || 'Student photo'}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              student.full_name
-                                ?.split(' ')
-                                .map((n) => n[0])
-                                .join('')
-                                .substring(0, 2)
-                                .toUpperCase()
-                            )}
+                            <img
+                              src={student.avatar_url || student.avatar || '/default-avatar.png'}
+                              alt={student.full_name || 'Student photo'}
+                              className="w-full h-full object-cover"
+                            />
                           </div>
                           <div>
                             <div className="font-semibold text-on-surface flex items-center gap-2">
@@ -642,21 +633,12 @@ export default function OnboardingApprovals({ globalSearch = '' }) {
         >
           <div className="space-y-5">
             <div className="flex items-center gap-4 p-4 rounded-2xl bg-surface-variant/20 border border-outline-variant/30">
-              <div className="w-14 h-14 rounded-2xl bg-primary text-white font-bold text-xl flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
-                {selectedStudent.avatar_url || selectedStudent.avatar ? (
-                  <img
-                    src={selectedStudent.avatar_url || selectedStudent.avatar}
-                    alt={selectedStudent.full_name || 'Student photo'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  selectedStudent.full_name
-                    ?.split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .substring(0, 2)
-                    .toUpperCase()
-                )}
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">
+                <img
+                  src={selectedStudent.avatar_url || selectedStudent.avatar || '/default-avatar.png'}
+                  alt={selectedStudent.full_name || 'Student photo'}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">

@@ -8,9 +8,11 @@ export const dynamic = 'force-dynamic';
  * GET: Retrieve comprehensive student LinkedIn-style dossier
  * Includes bio, name, documents, projects, profile, phone, and academic score
  */
-async function getHandler(req, { params }) {
+async function getHandler(req, context) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(context?.params);
+    const id = resolvedParams?.id;
+    console.log('[GET /api/admin/requests/[id]] Resolved student ID:', id);
     const dossier = await getStudentDossier(id);
 
     if (!dossier) {
@@ -37,12 +39,14 @@ async function getHandler(req, { params }) {
 /**
  * PATCH: Admin update for student dossier (bio, phone, headline, cgpa, projects)
  */
-async function patchHandler(req, { params }) {
+async function patchHandler(req, context) {
   try {
-    const { id } = params;
+    const resolvedParams = await Promise.resolve(context?.params);
+    const id = resolvedParams?.id;
     const body = await req.json();
 
-    const updated = await updateStudentDossier(id, body);
+    const actorId = req.user?.id || req.user?.adminId || null;
+    const updated = await updateStudentDossier(id, body, actorId);
     if (!updated) {
       return NextResponse.json(
         { error: 'Student record not found for update.' },
