@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '../components/Modal';
 import StudentLinkedInProfileModal from '../components/student/StudentLinkedInProfileModal';
 
@@ -18,38 +18,32 @@ export default function StudentManagement({ globalSearch = '' }) {
   const [hasSuccessfulSync, setHasSuccessfulSync] = useState(false);
   const [syncError, setSyncError] = useState(null);
 
-  useEffect(() => {
-    let isMounted = true;
-    const fetchStudents = async () => {
-      try {
-        const response = await fetch('/api/admin/requests?status=ALL', {
-          headers: {
-            Authorization: 'Bearer rimt-admin-master-token',
-            'x-admin-portal': 'true',
-          },
-        });
-        if (!response.ok) throw new Error(`Student sync failed (${response.status}).`);
-        const data = await response.json();
-        if (!Array.isArray(data.requests)) throw new Error('The server returned an invalid student list.');
-        if (isMounted) {
-          setRequests(data.requests);
-          setHasSuccessfulSync(true);
-          setSyncError(null);
-        }
-      } catch (error) {
-        if (isMounted) setSyncError(error.message || 'Unable to load live student registrations.');
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    };
+  const fetchStudents = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/requests?status=ALL', {
+        headers: {
+          Authorization: 'Bearer rimt-admin-master-token',
+          'x-admin-portal': 'true',
+        },
+      });
+      if (!response.ok) throw new Error(`Student sync failed (${response.status}).`);
+      const data = await response.json();
+      if (!Array.isArray(data.requests)) throw new Error('The server returned an invalid student list.');
+      setRequests(data.requests);
+      setHasSuccessfulSync(true);
+      setSyncError(null);
+    } catch (error) {
+      setSyncError(error.message || 'Unable to load live student registrations.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
+  useEffect(() => {
     fetchStudents();
     const interval = setInterval(fetchStudents, 3500);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, []);
+    return () => clearInterval(interval);
+  }, [fetchStudents]);
 
   const studentsList = useMemo(() => requests.map((record) => {
     const status = (record.status || 'UNKNOWN').toUpperCase();
@@ -69,12 +63,22 @@ export default function StudentManagement({ globalSearch = '' }) {
       verified: status === 'APPROVED' || status === 'VERIFIED',
       email: record.email || null,
       phone: record.phone || null,
-      spoc: record.spoc || null,
+      spoc: record.spoc || record.faculty_advisor || null,
       createdAt: record.created_at,
       rejectionReason: record.rejection_reason || null,
       revocationReason: record.revocation_reason || null,
       avatar_url: record.avatar_url || record.avatar || null,
       avatarBg: 'bg-tint-maroon text-primary border-rose-200/60',
+      cgpa: record.cgpa ?? null,
+      academic_score: record.academic_score ?? null,
+      attendance_rate: record.attendance_rate ?? null,
+      academic_standing: record.academic_standing ?? null,
+      faculty_advisor: record.faculty_advisor ?? null,
+      current_semester: record.current_semester ?? null,
+      bio: record.bio ?? null,
+      about_me: record.about_me ?? null,
+      skills: record.skills ?? null,
+      headline: record.headline ?? null,
     };
   }), [requests]);
 
@@ -820,14 +824,18 @@ export default function StudentManagement({ globalSearch = '' }) {
               <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">CGPA Score</span>
                 <span className="text-base font-extrabold text-[#8B1D2C] block mt-0.5">
-                  {Number(currentStudent?.cgpa || 8.65).toFixed(2)}
-                  <span className="text-[10px] text-slate-400 font-normal"> / 10.0</span>
+                  {currentStudent?.cgpa !== null && currentStudent?.cgpa !== undefined
+                    ? Number(currentStudent.cgpa).toFixed(2)
+                    : 'Not Graded'}
+                  {currentStudent?.cgpa !== null && currentStudent?.cgpa !== undefined && (
+                    <span className="text-[10px] text-slate-400 font-normal"> / 10.0</span>
+                  )}
                 </span>
               </div>
               <div className="p-2.5 rounded-xl bg-white/80 border border-slate-200/60 shadow-2xs">
                 <span className="text-[10px] text-slate-400 font-semibold block uppercase">Phone Contact</span>
                 <span className="text-xs font-semibold text-slate-800 font-mono truncate block mt-1">
-                  {currentStudent?.phone || '+91 98765 43210'}
+                  {currentStudent?.phone || 'Not provided'}
                 </span>
               </div>
             </div>
@@ -915,7 +923,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                   <span className="text-[9px] text-info-blue uppercase font-bold tracking-wider">Year / Semester</span>
                   <span className="material-symbols-outlined text-xs text-info-blue">workspace_premium</span>
                 </div>
-                <span className="text-sm font-bold text-info-blue mt-1 truncate">{currentStudent?.section || '1st Year (1st Sem)'}</span>
+                <span className="text-sm font-bold text-info-blue mt-1 truncate">{currentStudent?.section || 'Not assigned'}</span>
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-medium bg-white/90 text-info-blue border border-blue-200/60 mt-1 self-start truncate">
                   Registration value
                 </span>
@@ -932,7 +940,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                   <span className="text-[9px] text-secondary uppercase font-bold tracking-wider">Submitted</span>
                   <span className="material-symbols-outlined text-xs text-secondary">event_available</span>
                 </div>
-                <span className="text-sm font-bold text-secondary mt-1">{currentStudent?.createdAt ? new Date(currentStudent.createdAt).toLocaleDateString('en-IN') : '30/9/2026'}</span>
+                <span className="text-sm font-bold text-secondary mt-1">{currentStudent?.createdAt ? new Date(currentStudent.createdAt).toLocaleDateString('en-IN') : '—'}</span>
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/90 text-success-green border border-emerald-200/60 mt-1 self-start">
                   <span className="w-1 h-1 rounded-full bg-success-green" />
                   Registration timestamp
@@ -945,7 +953,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                 <span className="material-symbols-outlined text-xs text-success-green">cloud_done</span>
                 Supabase Live Auth Synced
               </span>
-              <span className="font-mono text-[10px] text-slate-400">ID: {currentStudent?.key ? String(currentStudent.key).slice(0, 8) : '26BCA055'}</span>
+              <span className="font-mono text-[10px] text-slate-400">ID: {currentStudent?.key ? String(currentStudent.key).slice(0, 8) : '—'}</span>
             </div>
           </div>
 
@@ -993,7 +1001,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                       Student registration
                     </span>
                     <span className="text-[10px] text-text-secondary font-mono mt-0.5 truncate">
-                      {currentStudent?.roll || '26BCA055'}
+                      {currentStudent?.roll || '—'}
                     </span>
                   </div>
                 </div>
@@ -1009,7 +1017,10 @@ export default function StudentManagement({ globalSearch = '' }) {
               <div className="p-2.5 rounded-xl bg-white/70 border border-white/80 backdrop-blur-md flex items-center justify-between hover:bg-white transition-all shadow-2xs group/item">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div className="w-7 h-7 rounded-lg bg-tint-blue text-info-blue flex items-center justify-center shrink-0 border border-blue-200/60 shadow-xs">
-                    <span className="material-symbols-outlined text-sm">
+                    <span
+                      className="material-symbols-outlined text-sm"
+                      style={{ fontVariationSettings: "'FILL' 1" }}
+                    >
                       workspace_premium
                     </span>
                   </div>
@@ -1018,7 +1029,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                       Review reason
                     </span>
                     <span className="text-[10px] text-text-secondary font-mono mt-0.5 truncate">
-                      {currentStudent?.rejectionReason || currentStudent?.revocationReason || 'No reason recorded'}
+                      {currentStudent?.rejectionReason || currentStudent?.revocationReason || 'No review reason recorded'}
                     </span>
                   </div>
                 </div>
@@ -1072,8 +1083,8 @@ export default function StudentManagement({ globalSearch = '' }) {
                   <span className="material-symbols-outlined text-xs text-primary">mail</span>
                   Email
                 </span>
-                <span className="text-text-primary font-semibold font-mono text-[11px] truncate max-w-[130px]" title={currentStudent?.email || 'student@rimt.ac.in'}>
-                  {currentStudent?.email || 'student@rimt.ac.in'}
+                <span className="text-text-primary font-semibold font-mono text-[11px] truncate max-w-[130px]" title={currentStudent?.email || 'No email provided'}>
+                  {currentStudent?.email || 'No email provided'}
                 </span>
               </div>
 
@@ -1083,7 +1094,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                   Contact
                 </span>
                 <span className="text-text-primary font-semibold font-mono text-[11px]">
-                  {currentStudent?.phone || '+91 98765 43210'}
+                  {currentStudent?.phone || 'Not provided'}
                 </span>
               </div>
 
@@ -1093,7 +1104,7 @@ export default function StudentManagement({ globalSearch = '' }) {
                   Assigned SPOC
                 </span>
                 <span className="text-text-primary font-semibold text-[11px] truncate max-w-[130px]">
-                  {currentStudent?.spoc || 'Prof. Raj Kumar'}
+                  {currentStudent?.spoc || currentStudent?.faculty_advisor || 'Not assigned'}
                 </span>
               </div>
             </div>
@@ -1216,6 +1227,7 @@ export default function StudentManagement({ globalSearch = '' }) {
         isOpen={!!linkedInStudent}
         student={linkedInStudent}
         onClose={() => setLinkedInStudent(null)}
+        onStatusChange={fetchStudents}
       />
     </div>
   );
