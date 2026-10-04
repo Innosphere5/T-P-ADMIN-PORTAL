@@ -31,7 +31,7 @@ export const BREAKPOINTS = {
 
 export const MODULES = [
   { id: 'students', label: 'Student Management', icon: 'school', shortDesc: 'Scholar Roster & Credentials' },
-  { id: 'companies', label: 'Company Management', icon: 'business', shortDesc: 'Corporate Relations & Directory' },
+  { id: 'companies', label: 'Talent Showcase', icon: 'person_search', shortDesc: 'Student Profiles for Companies' },
   { id: 'drives', label: 'Drive Management', icon: 'campaign', shortDesc: 'Campus Recruitment Schedules' },
   { id: 'statistics', label: 'Placement Statistics', icon: 'bar_chart', shortDesc: 'Institutional Analytics & Trends' },
   { id: 'trainings', label: 'Training Management', icon: 'menu_book', shortDesc: 'Skill Programs & Certifications' },

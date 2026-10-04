@@ -26,8 +26,8 @@ export default function Sidebar({
     },
     {
       id: 'companies',
-      label: 'Company Management',
-      icon: 'domain',
+      label: 'Talent Showcase',
+      icon: 'person_search',
       iconBg: 'bg-tint-blue/80',
       iconColor: 'text-info-blue',
     },
