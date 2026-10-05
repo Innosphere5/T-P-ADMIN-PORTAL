@@ -227,7 +227,7 @@ export default function CompanyManagement({ globalSearch = '' }) {
         <div>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="font-label-eyebrow text-label-eyebrow text-text-secondary uppercase">
-              Student Talent Showcase
+              Company Management
             </span>
             <span className="inline-flex items-center px-2 py-0.5 rounded-full font-label-badge text-label-badge bg-tint-maroon text-primary-container text-[11px] font-bold">
               For Companies
@@ -290,9 +290,9 @@ export default function CompanyManagement({ globalSearch = '' }) {
                   className="material-symbols-outlined text-sm text-[#efc050]"
                   style={{ fontVariationSettings: "'FILL' 1" }}
                 >
-                  star
+                  business
                 </span>
-                Talent Showcase
+                Company Management
               </span>
               <span className="text-xs text-slate-400">·</span>
               <span className="text-xs text-slate-300 font-medium">LinkedIn &amp; GitHub Style Profiles</span>
@@ -583,33 +583,61 @@ export default function CompanyManagement({ globalSearch = '' }) {
           {filteredStudents.map((s, idx) => (
             <div
               key={s.id || s._roll || idx}
-              className="animate-slide-up group relative rounded-2xl backdrop-blur-md transition-all duration-300 hover:shadow-xl hover:scale-[1.01] flex flex-col overflow-hidden cursor-pointer"
+              className="animate-slide-up group relative rounded-[24px] transition-all duration-200 hover:-translate-y-1 flex flex-col overflow-hidden cursor-pointer"
               style={{
                 animationDelay: `${Math.min(idx * 60, 600)}ms`,
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.65) 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.9)',
-                boxShadow: 'rgba(255, 255, 255, 0.95) 0px 1px 1px inset, rgba(0, 0, 0, 0.05) 0px 10px 25px -5px, rgba(0, 0, 0, 0.03) 0px 8px 10px -6px',
+                background: 'linear-gradient(160deg, #FFFFFF 0%, #FFF5F6 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.8)',
+                boxShadow: '0 10px 30px -12px rgba(138, 18, 40, 0.25)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 18px 40px -14px rgba(138, 18, 40, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = '0 10px 30px -12px rgba(138, 18, 40, 0.25)';
               }}
               onClick={() => setSelectedStudent(s)}
             >
-              {/* Hover sheen */}
-              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full duration-1000 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none transition-transform" />
+              {/* Glass sheen highlight across top-left */}
+              <div
+                className="absolute inset-0 pointer-events-none z-10"
+                style={{
+                  background: 'linear-gradient(120deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 35%)',
+                }}
+              />
+              {/* Hover sheen sweep */}
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full duration-1000 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none transition-transform z-10" />
 
               {/* Banner + Avatar */}
-              <div className="relative h-20 overflow-hidden rounded-t-2xl">
+              <div className="relative h-20 overflow-hidden rounded-t-[24px]">
                 {s.banner_url ? (
-                  <img src={s.banner_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      background: `linear-gradient(135deg, ${s._strength.pct >= 85 ? '#0f766e' : s._strength.pct >= 65 ? '#1d4ed8' : s._strength.pct >= 45 ? '#b45309' : '#475569'} 0%, ${s._strength.pct >= 85 ? '#134e4a' : s._strength.pct >= 65 ? '#1e3a5f' : s._strength.pct >= 45 ? '#78350f' : '#334155'} 100%)`,
+                  <img
+                    src={s.banner_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        e.currentTarget.nextElementSibling.style.display = 'block';
+                      }
                     }}
                   />
-                )}
+                ) : null}
+                <div
+                  className={`w-full h-full relative ${s.banner_url ? 'hidden' : 'block'}`}
+                  style={{
+                    background: `
+                      radial-gradient(120% 140% at 85% 0%, rgba(59,130,246,0.28) 0%, transparent 55%),
+                      radial-gradient(90% 120% at 0% 100%, rgba(255,255,255,0.18) 0%, transparent 60%),
+                      linear-gradient(135deg, #8A1228 0%, #A31D35 55%, #6E0E20 100%)
+                    `,
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/15 pointer-events-none" />
+                </div>
                 {/* Profile Strength Badge */}
                 <div className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md border ${s._strengthLabel.bg} ${s._strengthLabel.color} ${s._strengthLabel.ring}`}
-                  style={{ borderColor: 'rgba(255,255,255,0.5)' }}
+                  style={{ borderColor: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
                 >
                   <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                   {s._strength.pct}% · {s._strengthLabel.label}
@@ -687,19 +715,40 @@ export default function CompanyManagement({ globalSearch = '' }) {
                   </div>
                 )}
 
-                {/* Stats Row */}
+                {/* Stats Row — Glossy KPI Cards */}
                 <div className="mt-auto pt-3 grid grid-cols-3 gap-2 text-center">
-                  <div className="p-1.5 bg-surface-container-low/60 rounded-lg">
+                  <div
+                    className="p-1.5 rounded-xl transition-all duration-200 hover:scale-[1.02]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.78) 100%)',
+                      border: '1px solid rgba(226, 232, 240, 0.9)',
+                      boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.95), 0 1px 3px rgba(0, 0, 0, 0.03)',
+                    }}
+                  >
                     <div className="text-sm font-bold text-text-primary">{s._projects.length}</div>
-                    <div className="text-[10px] text-text-secondary">Projects</div>
+                    <div className="text-[10px] text-text-secondary font-medium">Projects</div>
                   </div>
-                  <div className="p-1.5 bg-surface-container-low/60 rounded-lg">
+                  <div
+                    className="p-1.5 rounded-xl transition-all duration-200 hover:scale-[1.02]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.78) 100%)',
+                      border: '1px solid rgba(226, 232, 240, 0.9)',
+                      boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.95), 0 1px 3px rgba(0, 0, 0, 0.03)',
+                    }}
+                  >
                     <div className="text-sm font-bold text-text-primary">{s._internships.length}</div>
-                    <div className="text-[10px] text-text-secondary">Internships</div>
+                    <div className="text-[10px] text-text-secondary font-medium">Internships</div>
                   </div>
-                  <div className="p-1.5 bg-surface-container-low/60 rounded-lg">
+                  <div
+                    className="p-1.5 rounded-xl transition-all duration-200 hover:scale-[1.02]"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.78) 100%)',
+                      border: '1px solid rgba(226, 232, 240, 0.9)',
+                      boxShadow: 'inset 0 1px 1px rgba(255, 255, 255, 0.95), 0 1px 3px rgba(0, 0, 0, 0.03)',
+                    }}
+                  >
                     <div className="text-sm font-bold text-text-primary">{s._certs.length}</div>
-                    <div className="text-[10px] text-text-secondary">Certificates</div>
+                    <div className="text-[10px] text-text-secondary font-medium">Certificates</div>
                   </div>
                 </div>
 
@@ -717,16 +766,32 @@ export default function CompanyManagement({ globalSearch = '' }) {
                   </div>
                 </div>
 
-                {/* CTA */}
+                {/* CTA: View Profile — Glossy Crimson Pill (matches "All Talent (6)" pill) */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setSelectedStudent(s);
                   }}
-                  className="mt-3 w-full h-9 rounded-lg bg-primary-container text-on-primary font-label-button text-label-button hover:bg-primary-hover shadow-sm transition-all duration-200 flex items-center justify-center gap-1.5 text-white"
+                  className="group/btn relative mt-3 w-full h-9 rounded-full font-label-button text-label-button text-white font-bold transition-all duration-200 flex items-center justify-center gap-1.5 overflow-hidden shadow-md hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D35] focus-visible:ring-offset-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)',
+                    boxShadow: '0 8px 20px -6px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #B91C3C 0%, #98142E 100%)';
+                    e.currentTarget.style.boxShadow = '0 12px 24px -6px rgba(138, 18, 40, .65), inset 0 1px 0 rgba(255, 255, 255, .45)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)';
+                    e.currentTarget.style.boxShadow = '0 8px 20px -6px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)';
+                  }}
                 >
-                  <span className="material-symbols-outlined text-base">visibility</span>
-                  <span>View Full Profile</span>
+                  {/* Subtle diagonal light sweep */}
+                  <div className="absolute inset-0 -translate-x-full group-hover/btn:translate-x-full duration-700 bg-gradient-to-r from-transparent via-white/35 to-transparent pointer-events-none transition-transform" />
+                  <span className="material-symbols-outlined text-[17px] text-white">
+                    visibility
+                  </span>
+                  <span className="tracking-tight">View Full Profile</span>
                 </button>
               </div>
             </div>
@@ -815,9 +880,13 @@ export default function CompanyManagement({ globalSearch = '' }) {
               <div className="flex justify-center">
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedStudent(s); }}
-                  className="px-3 py-1.5 rounded-lg bg-primary-container text-white font-label-button text-[11px] hover:bg-primary-hover shadow-sm transition-colors flex items-center gap-1"
+                  className="px-3.5 py-1.5 rounded-full font-label-button text-[11px] font-bold text-white hover:-translate-y-0.5 active:translate-y-0 shadow-md transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D35] focus-visible:ring-offset-2"
+                  style={{
+                    background: 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)',
+                    boxShadow: '0 6px 16px -4px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)',
+                  }}
                 >
-                  <span className="material-symbols-outlined text-sm">visibility</span>
+                  <span className="material-symbols-outlined text-sm text-white">visibility</span>
                   Profile
                 </button>
               </div>
@@ -840,17 +909,7 @@ export default function CompanyManagement({ globalSearch = '' }) {
       {/* ── Talent Profile Modal (Read-Only Portfolio View) ── */}
       {selectedStudent && (
         <TalentProfileModal
-          student={{
-            id: selectedStudent.id,
-            roll: selectedStudent._roll,
-            roll_number: selectedStudent._roll,
-            roll_no: selectedStudent._roll,
-            name: selectedStudent._name,
-            full_name: selectedStudent._name,
-            avatar_url: selectedStudent._avatar,
-            email: selectedStudent.email,
-            department: selectedStudent._department,
-          }}
+          student={selectedStudent}
           isOpen={!!selectedStudent}
           onClose={() => setSelectedStudent(null)}
         />

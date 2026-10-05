@@ -19,6 +19,14 @@ export const COLORS = {
   textPrimary: '#181A1F',
   textSecondary: '#6B7280',
   borderSubtle: '#E7E8EE',
+  brandRed600: '#A31D35',
+  brandRed700: '#8A1228',
+  brandRed800: '#6E0E20',
+  brandRed50: '#FDECEF',
+  brandRed100: '#FAD6DC',
+  brandBlue500: '#3B82F6',
+  glossGradient: 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)',
+  glossShadow: '0 8px 20px -6px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)',
 };
 
 export const BREAKPOINTS = {
@@ -31,7 +39,7 @@ export const BREAKPOINTS = {
 
 export const MODULES = [
   { id: 'students', label: 'Student Management', icon: 'school', shortDesc: 'Scholar Roster & Credentials' },
-  { id: 'companies', label: 'Talent Showcase', icon: 'person_search', shortDesc: 'Student Profiles for Companies' },
+  { id: 'companies', label: 'Company Management', icon: 'business', shortDesc: 'Corporate Relations & Directory' },
   { id: 'drives', label: 'Drive Management', icon: 'campaign', shortDesc: 'Campus Recruitment Schedules' },
   { id: 'statistics', label: 'Placement Statistics', icon: 'bar_chart', shortDesc: 'Institutional Analytics & Trends' },
   { id: 'trainings', label: 'Training Management', icon: 'menu_book', shortDesc: 'Skill Programs & Certifications' },

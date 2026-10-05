@@ -1,9 +1,9 @@
-# 🛡️ AGENT.hd — RIMT University Institutional Placement & Operations Portal
+# 🛡️ ADMIN.md — RIMT University Institutional Placement & Operations Portal
 
 > **Single Source of Truth:** Master Memory, Architecture, Screens, Endpoints, and File Map for the entire RIMT Admin Portal & Integrated Student App.  
-> **Last Updated:** 2026-09-30  
+> **Last Updated:** 2026-10-05  
 > **Role:** Senior Full-Stack & System Logic Engineer Specification  
-> **Status:** Active; fixed admin authorization active, LinkedIn profile tracker live  
+> **Status:** Active; Talent Showcase live, fixed admin authorization active, LinkedIn profile tracker live, Cloudinary upload signing endpoint operational  
 
 ---
 
@@ -13,7 +13,7 @@ The **RIMT Institutional Portal** is an enterprise-grade administrative and acad
 A core architectural pillar is the **Gated Student Onboarding System & Administrator Oversight**:
 - All new student registrations enter a strict `PENDING` queue.
 - No access token or home portal permissions are granted upon registration.
-- An Administrator manually reviews the student’s identity, roll number, department, and academic year in the **Onboarding Approvals** queue.
+- An Administrator manually reviews the student's identity, roll number, department, and academic year in the **Onboarding Approvals** queue.
 - Administrators can inspect a comprehensive **LinkedIn-Style Scholar Dossier** containing student bio, legal name, phone number, academic score (CGPA & SGPA breakdown), featured projects portfolio, and verified credentials vault.
 - Upon **Approval**, the student is granted full access to the portal dashboard, document vault, and profile editor.
 - Upon **Rejection**, the student is locked out with an official registrar reason displayed on their screen.
@@ -23,40 +23,54 @@ A core architectural pillar is the **Gated Student Onboarding System & Administr
 - The mobile app's live Supabase schema uses `name` and `roll_no`; admin-facing records normalize these to `full_name` and `roll_number` while retaining both aliases. Do not assume the phone app writes to the admin process's in-memory fallback.
 - Real-time guards block `PENDING`, `REJECTED`, and `REVOKED` accounts. The app rechecks approved sessions every 3.5 seconds.
 
+### Cross-Project Upload Architecture (Cloudinary):
+- The admin portal hosts a **Cloudinary Signing Endpoint** at `POST /api/cloudinary/sign` that generates SHA-1 upload signatures for the mobile app.
+- The mobile app calls this endpoint to upload certificates and documents directly to Cloudinary, keeping the `CLOUDINARY_API_SECRET` safe on the server side.
+- CORS headers allow `*` origins so both the admin web portal and the physical mobile device can call the endpoint.
+- The admin portal's `.env` holds `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.
+- The mobile app's `.env` sets `EXPO_PUBLIC_CLOUDINARY_SIGNING_URL` to the admin portal's LAN/deployed URL (e.g., `http://<LAN_IP>:3000/api/cloudinary/sign` for local dev).
+
 ---
 
 ## 2. Tech Stack
 
 | Domain | Technology | Configuration & Details |
 |---|---|---|
-| **Admin Web Portal** | Next.js 14.2.15 (App Router) + React 18.3.1 | Single-Page Responsive Institutional Shell with 3-State Sidebar |
-| **Styling & Design System** | Tailwind CSS 3.4.6 | Custom institutional palette: Primary Maroon (`#6B0018`), Gold (`#E7B94A`), Surfaces |
-| **Icons & Micro-UI** | Lucide React (`^0.424.0`) + Material Symbols | Clean SVG vector iconography |
-| **Student Mobile/Web App** | Expo SDK 57 + React Native 0.86.3 | Cross-platform student app in `c:\Users\r3dha\OneDrive\Desktop\APP-RIMIT` |
+| **Admin Web Portal** | Next.js 16.3.8 (App Router) + React 18.3.1 | Single-Page Responsive Institutional Shell with 3-State Sidebar |
+| **Styling & Design System** | Tailwind CSS 3.4.19 | Custom institutional palette: Primary Maroon (`#6B0018`), Gold (`#E7B94A`), Desert Surfaces (`#FAF6F0`) |
+| **Icons & Micro-UI** | Lucide React (`^0.424.0`) + Material Symbols (self-hosted WOFF2/TTF) | Clean SVG vector iconography with local font-face binding |
+| **Student Mobile/Web App** | Expo SDK 57 + React Native 0.86.3 | Cross-platform student app in `c:\Users\r3dha\APP-RIMIT-(2)` |
 | **Database** | PostgreSQL via Supabase (`pwghazyfxhypzkadqfnn`) | Source of truth for student registrations and review states |
 | **Admin DB writes** | `SUPABASE_SERVICE_ROLE_KEY` | Server-only secret required to bypass student-facing RLS for review-state writes |
-| **Backend API Layer** | Next.js 14 Route Handlers (`src/app/api/*`) | Serverless microservice architecture for Auth, Approvals, Profile |
-| **Authentication & Cryptography** | Standard Web Crypto API (`crypto.subtle`) | PBKDF2/SHA-256 salted password hashing & HMAC-SHA256 JWT tokens |
+| **Backend API Layer** | Next.js Route Handlers (`src/app/api/*`) | Serverless microservice architecture for Auth, Approvals, Profile, Cloudinary Signing |
+| **Authentication & Cryptography** | Standard Web Crypto API (`crypto.subtle`) + Node.js `crypto` | PBKDF2/SHA-256 salted password hashing, HMAC-SHA256 JWT tokens, SHA-1 Cloudinary signatures |
+| **File Uploads** | Cloudinary (server-signed) | Upload signature generation via `/api/cloudinary/sign`; API secret never exposed to client |
+| **Realtime Sync** | `@supabase/supabase-js` Realtime | Bidirectional PostgreSQL change subscriptions for all dossier tables |
 
 ---
 
 ## 3. Complete Directory & File Structure Tree
 
 ```
-c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
-├── AGENT.hd                      # ⭐ THE SINGLE MASTER MEMORY FILE (This Document)
+c:\Users\r3dha\ADMIN-PANEL-RIMT\
+├── ADMIN.md                      # ⭐ THE SINGLE MASTER MEMORY FILE (This Document)
+├── FULL-APP.md                   # Full application context document
+├── NEW-FEATURE.md                # Feature specification & DoD for Admin Panel Authentication
+├── CONTEXT (1).md                # Project context reference
+├── README.md                     # High-level repository readme
 ├── jsconfig.json                 # Path aliases mapping: "@/*" -> "./src/*"
-├── next.config.js                # Next.js configuration
-├── package.json                  # Next.js, React, Lucide-React, Tailwind dependencies
+├── next.config.js                # Next.js configuration (reactStrictMode, images unoptimized)
+├── package.json                  # Next.js 16.3.8, React 18.3.1, Lucide-React, Tailwind, @supabase/supabase-js
 ├── package-lock.json             # Locked dependency tree
 ├── postcss.config.js             # PostCSS Tailwind processor
-├── tailwind.config.js            # Design tokens, color system, and container queries
-├── README.md                     # High-level repository readme
-├── NEW-FEATURE.md                # Feature specification & DoD for Admin Panel Authentication
+├── tailwind.config.js            # Design tokens, color system, container queries, desert theme
+├── .env                          # Supabase URL/Key + Cloudinary credentials (CLOUDINARY_CLOUD_NAME, API_KEY, API_SECRET)
+├── .env.example                  # Cloudinary config template (server-only secrets)
+├── .env.local                    # Supabase URL + Key override
 │
 ├── src/
-│   ├── app/                      # Next.js 14 App Router
-│   │   ├── layout.jsx            # Universal root layout, HTML shell, and typography imports
+│   ├── app/                      # Next.js App Router
+│   │   ├── layout.jsx            # Universal root layout, HTML shell, Material Symbols font preloading
 │   │   ├── page.jsx              # Main Single-Page Admin Shell orchestrating active module views & AuthGuard
 │   │   ├── admin/
 │   │   │   └── auth/
@@ -83,20 +97,28 @@ c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
 │   │       │           ├── approve/route.js # PATCH: Approve student -> status: APPROVED
 │   │       │           ├── reject/route.js  # PATCH: Reject student -> status: REJECTED + reason
 │   │       │           └── revoke/route.js  # PATCH: Revoke student access -> status: REVOKED
+│   │       ├── cloudinary/
+│   │       │   └── sign/
+│   │       │       └── route.js    # POST: Cloudinary upload signature generator (SHA-1); OPTIONS: CORS preflight
 │   │       └── profile/
 │   │           └── route.js      # GET/PUT: Gated student profile editor (APPROVED users only)
 │   │
 │   ├── lib/                      # Core Backend Utilities & Security Guards
 │   │   ├── auth.js               # Web Crypto PBKDF2 password hashing & HMAC-SHA256 JWT
 │   │   ├── authApi.js            # Client-side API client for admin auth endpoints
-│   │   ├── db.js                 # Supabase adapter, student/admin records, and memory fallback
+│   │   ├── db.js                 # Supabase adapter, student/admin records, dossier CRUD, and memory fallback
 │   │   ├── middleware.js         # withAuth route guard enforcing admin & student role and status checks
-│   │   └── schema.sql            # PostgreSQL schema definition with students and admins tables
+│   │   ├── schema.sql            # PostgreSQL schema definition with students and admins tables
+│   │   ├── supabaseClient.js     # Shared Supabase client for realtime subscriptions (eventsPerSecond: 10)
+│   │   └── enable_realtime.sql   # SQL to enable realtime publication on dossier tables
 │   │
 │   ├── components/               # Admin UI Shell Components
 │   │   ├── Header.jsx            # Top bar: Dynamic admin avatar, search query, notifications
-│   │   ├── Sidebar.jsx           # 3-state responsive drawer with Onboarding Approvals badge count
+│   │   ├── Sidebar.jsx           # 3-state responsive drawer with Onboarding Approvals badge count; "Talent Showcase" replaces "Company Management" sidebar entry
 │   │   ├── Modal.jsx             # Accessible backdrop dialog wrapper for reviews & actions
+│   │   ├── FilterPills.jsx       # Filterable pill-style toggle buttons
+│   │   ├── HeroCard.jsx          # Decorative hero banner card component
+│   │   ├── KpiCard.jsx           # KPI metric display card with icon and trend
 │   │   ├── auth/
 │   │   │   ├── AuthScreen.jsx    # Sign In only (no signup) with warm desert theme & fixed admin credentials
 │   │   │   └── AuthGuard.jsx     # Route protection wrapper preventing unauthenticated dashboard access
@@ -104,13 +126,14 @@ c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
 │   │   │   ├── ProfileMenu.jsx   # Header avatar dropdown menu (Profile, Change Password, Sign Out)
 │   │   │   └── ProfileModal.jsx  # Modal for photo upload & password management
 │   │   └── student/
-│   │       ├── StudentLinkedInProfileModal.jsx  # ⭐ LinkedIn-Style Scholar Dossier view
-│   │       └── StudentDossierModal.jsx          # ⭐ Full Admin-Managed Student Dossier (7 tabs: Overview, Projects, Git, Certs, Internships, Academics, Audit)
+│   │       ├── StudentLinkedInProfileModal.jsx  # ⭐ LinkedIn-Style Scholar Dossier view (2936 lines) with Cloudinary document upload
+│   │       ├── StudentDossierModal.jsx          # ⭐ Full Admin-Managed Student Dossier (7 tabs: Overview, Projects, Git, Certs, Internships, Academics, Audit)
+│   │       └── TalentProfileModal.jsx           # ⭐ NEW: Read-only student portfolio viewer for corporate recruiters (Talent Showcase)
 │   │
 │   ├── views/                    # Primary Admin Functional Screens
 │   │   ├── OnboardingApprovals.jsx # ⭐ Gated student approval queue, review drawer, reject modal
 │   │   ├── StudentManagement.jsx # Verified student directory, CGPA/Attendance columns, "Open Dossier" button
-│   │   ├── CompanyManagement.jsx # Corporate recruiter roster and packages
+│   │   ├── CompanyManagement.jsx # ⭐ RENAMED: "Talent Showcase" — approved student portfolio gallery with profile strength scoring, recruiter-facing card grid, and TalentProfileModal
 │   │   ├── DriveManagement.jsx   # Upcoming and active campus drives
 │   │   ├── PlacementStatistics.jsx # Real-time placement metrics and department charts
 │   │   ├── TrainingManagement.jsx # Pre-placement training schedule and rosters
@@ -118,21 +141,42 @@ c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
 │   │   ├── ReportGeneration.jsx  # Exportable reports
 │   │   └── ProfileTab.jsx        # Admin profile information & security settings
 │   │
+│   ├── expo/                     # Expo/Mobile Admin Portal Navigator (embedded module)
+│   │   ├── AdminPortalNavigator.jsx # Mobile admin portal navigation component
+│   │   ├── colors.js             # Mobile admin color tokens
+│   │   └── screens/              # Mobile admin screen components
+│   │       ├── CompanyManagementScreen.jsx
+│   │       ├── DriveManagementScreen.jsx
+│   │       ├── InternshipMonitoringScreen.jsx
+│   │       ├── PlacementStatisticsScreen.jsx
+│   │       ├── ReportGenerationScreen.jsx
+│   │       ├── StudentManagementScreen.jsx
+│   │       └── TrainingManagementScreen.jsx
+│   │
 │   ├── constants/                # Data and Design Constants
-│   │   ├── data.js               # Mock data for companies, drives, and student records
+│   │   ├── data.js               # Mock data for drives, student records, and training modules
 │   │   └── tokens.js             # Color palette, spacing, and typography definitions
 │   │
 │   └── styles/
-│       └── globals.css           # Global CSS and custom animations
+│       └── globals.css           # Global CSS, custom animations, Material Symbols font-face
+│
+├── public/
+│   ├── default-avatar.jpg        # Default student avatar fallback (JPEG)
+│   ├── default-avatar.png        # Default student avatar fallback (PNG)
+│   └── fonts/                    # Self-hosted Material Symbols fonts
+│       ├── material-symbols-outlined.woff2
+│       └── material-symbols-outlined.ttf
 │
 ├── supabase/
 │   └── migrations/
 │       ├── 20260930_fixed_admin_accounts.sql             # Fixed admin accounts (Raj Kumar, Sagrika) with PBKDF2 hashed passwords
-│       └── 20260930_add_student_bio_and_academic_score.sql # Student bio, headline, cgpa, academic_score, banner_url, projects, skills, semester_scores
+│       ├── 20260930_add_student_bio_and_academic_score.sql # Student bio, headline, cgpa, academic_score, banner_url, projects, skills, semester_scores
+│       └── 20260930_admin_student_dossier.sql             # Unified Student Dossier, 9 tables, RLS policies, manual-only academic summary, private certificate bucket
 │
 └── tests/
-    ├── onboarding.test.mjs       # Automated unit test suite verifying approval state transitions
-    └── admin-auth.test.mjs       # Automated unit test suite verifying admin authentication & session lifecycle
+    ├── onboarding.test.mjs       # Automated unit test suite verifying approval state transitions (21/21)
+    ├── admin-auth.test.mjs       # Automated unit test suite verifying admin authentication & session lifecycle (18/18)
+    └── dossier-academic.test.mjs # Automated unit test suite verifying dossier CRUD & academic manual control (26/26)
 ```
 
 ---
@@ -165,11 +209,18 @@ c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
   - Live totals and filters for status, department, and year/semester.
   - CSV export contains the currently filtered live records. Legacy add/import controls do not claim unsaved records succeeded.
 
-### 4.3 Company Management (`src/views/CompanyManagement.jsx`)
-- **Purpose:** Directory of recruiting corporate partners.
+### 4.3 Talent Showcase (`src/views/CompanyManagement.jsx` — formerly Company Management)
+- **Purpose:** Recruiter-facing gallery of approved RIMT student portfolios with profile strength scoring. Designed for corporate recruiters browsing the RIMT Talent pool.
 - **Features:**
-  - Company tier categorization (Dream, Super Dream, Core, IT Services).
-  - HR contact details, past recruitment numbers, and average compensation offered.
+  - **Profile Strength Scoring:** Automated 0–100% profile completeness score computed from bio, headline, avatar, skills, projects, certificates, and internships. Students classified as **Exceptional** (≥85%), **Strong** (≥65%), **Developing** (≥45%), or **Starter** (<45%).
+  - **Live Supabase Data:** Fetches all `APPROVED`/`VERIFIED` students via `/api/admin/requests?status=ALL` with 8-second auto-refresh polling.
+  - **Filter Pills:** All Talent, Exceptional, Strong, Projects, Internships, Certified.
+  - **Department Filter:** Dropdown to filter by BCA, B.Sc IT, B.Sc Cyber Security, B.Sc (Hons) AI & ML.
+  - **Sort Options:** By profile strength, name (A-Z), project count, or most recent.
+  - **Grid/List View Toggle:** Card-based grid view and compact list view.
+  - **Student Portfolio Cards:** Display avatar, name, headline, department, roll number, skills tags, project/internship/certificate counts, and profile strength progress bar.
+  - **TalentProfileModal:** Read-only full-screen student portfolio viewer (`src/components/student/TalentProfileModal.jsx`) showing About section, Tech Stack & Skills, Featured Projects, Certificates, Internships, and profile strength gauge. Designed for recruiter consumption — no admin editing capabilities.
+  - **Search:** Full-text search by name, roll number, department, headline, or skill name.
 
 ### 4.4 Drive Management (`src/views/DriveManagement.jsx`)
 - **Purpose:** Placement drive scheduling and applicant tracking.
@@ -296,7 +347,21 @@ c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT\
   - **Response (200 OK):** Updates status to `REVOKED` and saves the reason and review audit fields.
   - **Prerequisites:** Apply `APP-RIMIT/supabase/migrations/20260929_student_review_states.sql` and configure `SUPABASE_SERVICE_ROLE_KEY` in the admin server environment. Never expose this key to the browser or mobile app. Hardcoded bypass headers work only in local development; production requires a signed admin JWT.
 
-### 5.4 Profile (`src/app/api/profile/`)
+### 5.4 Cloudinary Signing (`src/app/api/cloudinary/sign/`)
+* **`POST /api/cloudinary/sign`**
+  - **Auth:** Public (CORS `Access-Control-Allow-Origin: *`).
+  - **Request Body:** `{ "folder": "rimt-academic-trust/ROLL_NUMBER", "timestamp": <optional> }`
+  - **Validation:** Folder must match regex `^rimt-academic-trust\/[A-Z0-9_-]{1,32}$`.
+  - **Response (200 OK):**
+    ```json
+    { "signature": "<sha1>", "timestamp": 1696300000, "api_key": "...", "cloud_name": "...", "folder": "rimt-academic-trust/ROLL_NUMBER" }
+    ```
+  - **Response (503):** If `CLOUDINARY_API_SECRET` is missing or set to `****`.
+  - **Response (400):** If folder format is invalid.
+  - **Environment Variables Required:** `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` (server-only, never in `EXPO_PUBLIC_*`).
+* **`OPTIONS /api/cloudinary/sign`** — Returns `204` with CORS headers for preflight.
+
+### 5.5 Profile (`src/app/api/profile/`)
 * **`GET /api/profile`**
   - **Auth:** Authenticated user with `status === 'APPROVED'`. Returns profile data.
 * **`PUT /api/profile`**
@@ -327,12 +392,21 @@ CREATE TABLE IF NOT EXISTS public.students (
   avatar_url TEXT,
   bio TEXT,                          -- Student professional bio / summary (LinkedIn-style)
   headline TEXT,                     -- One-line professional headline
+  about_me TEXT,                     -- Longer freeform description
   cgpa NUMERIC(4,2),                 -- Legacy column; source of truth is student_academic_summary
   academic_score JSONB DEFAULT '{}',
   banner_url TEXT,
   projects JSONB DEFAULT '[]',
   skills TEXT[] DEFAULT '{}',
-  semester_scores JSONB DEFAULT '[]'
+  semester_scores JSONB DEFAULT '[]',
+  internships JSONB DEFAULT '[]',   -- Student internships JSONB array (migration: 20261002)
+  attendance_rate NUMERIC(5,2),      -- Overall attendance percentage
+  academic_standing TEXT,            -- e.g. "Dean's Honors List"
+  active_backlogs INTEGER DEFAULT 0,
+  total_credits INTEGER,
+  faculty_advisor TEXT,
+  current_semester TEXT,
+  admin_notes TEXT                   -- Internal admin notes (not visible to student)
 );
 
 -- Supabase table: admins (fixed admin accounts only)
@@ -353,6 +427,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_students_roll_no_unique
 
 CREATE INDEX IF NOT EXISTS idx_students_status 
   ON public.students (status);
+
+CREATE INDEX IF NOT EXISTS idx_students_cgpa
+  ON public.students (cgpa DESC NULLS LAST);
+
+CREATE INDEX IF NOT EXISTS idx_students_status_dept
+  ON public.students (status, department);
 ```
 
 ### 6.2 Admin-Managed Student Dossier & Academic Tables (Migration: `20260930_admin_student_dossier.sql`)
@@ -609,7 +689,29 @@ To ensure that an active session is revoked **immediately** when an administrato
 
 ---
 
-## 9. Feature Status Table
+## 9. Environment Variables
+
+### Admin Panel (`ADMIN-PANEL-RIMT/.env`)
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://pwghazyfxhypzkadqfnn.supabase.co
+NEXT_PUBLIC_SUPABASE_KEY=<anon-key>
+
+# Cloudinary Config (used by /api/cloudinary/sign endpoint)
+CLOUDINARY_CLOUD_NAME=<cloud_name>
+CLOUDINARY_API_KEY=<api_key>
+CLOUDINARY_API_SECRET=<api_secret>    # ⚠️ SERVER-ONLY — Never expose in EXPO_PUBLIC_*
+```
+
+### Admin Panel (`.env.local` — optional override)
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://pwghazyfxhypzkadqfnn.supabase.co
+NEXT_PUBLIC_SUPABASE_KEY=<anon-key>
+```
+
+---
+
+## 10. Feature Status Table
 
 | Feature | Implementation Files | Status |
 |---|---|---|
@@ -622,7 +724,7 @@ To ensure that an active session is revoked **immediately** when an administrato
 | **Approve / Reject / Revoke Handlers** | `src/app/api/admin/requests/[id]/*` | Code complete; production writes also require a production admin-session issuer |
 | **Real-Time Mid-Session Eviction** | `src/lib/middleware.js`, `tests/onboarding.test.mjs` | ✅ Complete |
 | **Protected Profile Endpoint** | `src/app/api/profile/route.js` | ✅ Complete |
-| **Next.js Production Build** | `package.json`, `jsconfig.json`, Next.js 14.2.35 | ✅ Production build verified |
+| **Next.js Production Build** | `package.json`, `jsconfig.json`, Next.js 16.3.8 | ✅ Production build verified |
 | **Automated Unit Test Suites** | `tests/dossier-academic.test.mjs` (26/26), `tests/onboarding.test.mjs` (21/21), `tests/admin-auth.test.mjs` (18/18) | ✅ 65/65 passed; full lifecycle test coverage |
 | **Live Supabase review write** | `src/lib/db.js`, `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_KEY` | ✅ Fixed: Falls back to project key, writes supported table columns (`status`, `updated_at`), avoiding PGRST204 "Student record not found" errors |
 | **Student Photo Verification** | `src/views/OnboardingApprovals.jsx`, `src/views/StudentManagement.jsx` | ✅ Displays student profile picture (`avatar_url`) in queue, modal, and directory |
@@ -631,10 +733,34 @@ To ensure that an active session is revoked **immediately** when an administrato
 | **Strict Manual Academic Control** | `src/components/student/StudentDossierModal.jsx`, `src/lib/db.js`, `supabase/migrations/20260930_admin_student_dossier.sql` | ✅ Complete — Strict anti-automation policy, CGPA/attendance/backlogs/SGPA/grades manual-only, confirm-before-save old vs new diff modal, tamper-evident audit logging |
 | **Real-Time Bidirectional Sync & Desert Dossier Theme** | `src/lib/supabaseClient.js`, `src/components/student/StudentDossierModal.jsx`, `src/views/StudentManagement.jsx` | ✅ Complete — Realtime Supabase publication for all dossier tables and student records, instant bidirectional UI sync, warm desert theme (#FAF6F0) and WhatsApp-style human silhouette avatar demo |
 | **LinkedIn-Style Scholar Dossier** | `src/components/student/StudentLinkedInProfileModal.jsx`, `src/views/StudentManagement.jsx`, `src/views/OnboardingApprovals.jsx` | ✅ Complete — Hero banner, bio, CGPA/SGPA tracker, projects portfolio, documents vault, live admin overrides |
+| **Cloudinary Upload Signing** | `src/app/api/cloudinary/sign/route.js`, `.env` (CLOUDINARY_*) | ✅ Complete — Server-side SHA-1 signature generator, CORS-enabled, folder validation, mobile app integration via `EXPO_PUBLIC_CLOUDINARY_SIGNING_URL` |
+| **Talent Showcase (formerly Company Management)** | `src/views/CompanyManagement.jsx`, `src/components/student/TalentProfileModal.jsx`, `src/components/Sidebar.jsx`, `src/constants/tokens.js`, `src/lib/db.js` | ✅ Complete — Recruiter-facing student portfolio gallery with profile strength scoring, filter pills, department filters, sort options, grid/list views, and read-only TalentProfileModal. Sidebar and module registry renamed from "Company Management" to "Talent Showcase" with `person_search` icon. |
+| **Expo Mobile Admin Screens** | `src/expo/AdminPortalNavigator.jsx`, `src/expo/screens/*`, `src/expo/colors.js` | ✅ Present — 7 mobile admin screen components (Student, Company, Drive, Internship, Placement, Training, Report) |
 
 ---
 
-## 10. Changelog
+## 11. Changelog
+- **2026-10-05 (Company Management & Talent Profile Enhancements):**
+  1. **Sidebar & Module Registry Restoration:** Replaced "Talent Showcase" with "Company Management" in `src/components/Sidebar.jsx` and `src/constants/tokens.js`, binding with the `business` icon and corporate directory descriptors. Updated action ribbon and hero headers in `src/views/CompanyManagement.jsx`.
+  2. **Glossy Light Red "View Full Profile" Button & Glossy KPI Cards:** Re-styled the "View Full Profile" CTA on student talent cards into a glossy light red card/button (`h-9 w-full rounded-xl`, glassmorphic light red gradient, crisp crimson typography, glossy light reflection sweep). Re-styled the three mini KPI cards (Projects, Internships, Certificates) with high-gloss gradients, inset highlights, and clean borders while preserving exact compact dimensions.
+  3. **Custom Banner & Blue/White Gradient Fallback:** Updated the banner behind student profile cards (`src/views/CompanyManagement.jsx` and `src/components/student/TalentProfileModal.jsx`). Displays student's custom banner image from real database (`banner_url`) when set, and seamlessly falls back to a modern blue and white color gradient banner with radial highlights when unset or if an image error occurs.
+  4. **Scroll-Spy Tab Navigation:** Implemented bidirectional scroll-spy in `src/components/student/TalentProfileModal.jsx`. As the user scrolls through the modal, the active tab smoothly updates from **About → Skills → Projects → (Experience) → Certificates → Academics**. When scrolling back up, active tabs smoothly reverse back to About. Smooth auto-centering of active tab button and smooth scrolling on tab click without jitter.
+  5. **Strict Real Data Governance:** Academic Record section always renders real Supabase backend metrics (CGPA, Attendance %, Score %, Semester/Batch, Department, Roll Number, Dean's Honors List) with "—" for unset registrar fields — zero fake or dummy data.
+- **2026-10-05 (Talent Showcase — Recruiter-Facing Student Portfolio Gallery):**
+  1. **New Component — `TalentProfileModal.jsx`:** Created `src/components/student/TalentProfileModal.jsx` (918 lines) — a read-only, recruiter-facing student portfolio viewer. Features: About section, Tech Stack & Skills with deterministic color-coded skill tags, Featured Projects with tech stack/demo links, Certificates with issuing org and dates, Internships with company/role/status, and a Profile Strength gauge (Exceptional/Strong/Developing/Starter). Designed for corporate recruiter consumption with no admin editing capabilities.
+  2. **`CompanyManagement.jsx` → Talent Showcase:** Completely rebuilt `src/views/CompanyManagement.jsx` from a static corporate directory into a live, data-driven student talent gallery. Fetches all `APPROVED`/`VERIFIED` students from `/api/admin/requests?status=ALL` with 8-second auto-refresh. Features: profile strength scoring (0-100%), filter pills (All Talent, Exceptional, Strong, Projects, Internships, Certified), department dropdown filter, sort options (strength, name, projects, recent), grid/list view toggle, student portfolio cards with avatar, headline, skills tags, and strength progress bar.
+  3. **Sidebar Rename:** Updated `src/components/Sidebar.jsx` — sidebar entry changed from `label: 'Company Management'` / `icon: 'domain'` to `label: 'Talent Showcase'` / `icon: 'person_search'`.
+  4. **Module Registry Rename:** Updated `src/constants/tokens.js` — MODULES entry changed from `{ id: 'companies', label: 'Company Management', icon: 'business', shortDesc: 'Corporate Relations & Directory' }` to `{ id: 'companies', label: 'Talent Showcase', icon: 'person_search', shortDesc: 'Student Profiles for Companies' }`.
+  5. **DB Layer Enhancement:** Added `getAllStudentInternships()` function to `src/lib/db.js` — aggregates internship records across all approved students by parsing `students.internships` JSONB array and `admin_notes.internships` fallback, enriching each with `student_name`, `student_roll`, and `student_department` metadata.
+- **2026-10-03 (Cloudinary Upload Signing Endpoint & Cross-Project Integration):**
+  1. **Cloudinary Signing API:** Added `src/app/api/cloudinary/sign/route.js` — `POST` endpoint generates SHA-1 upload signatures using `CLOUDINARY_API_SECRET`. Validates folder format via regex, returns `{ signature, timestamp, api_key, cloud_name, folder }`. `OPTIONS` handler returns CORS preflight with `Access-Control-Allow-Origin: *`.
+  2. **Environment Configuration:** Added `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` to `.env`. Created `.env.example` documenting server-only Cloudinary secrets.
+  3. **LinkedIn Profile Document Upload:** `StudentLinkedInProfileModal.jsx` updated to use `/api/cloudinary/sign` for admin-side document uploads to Cloudinary with roll-number-scoped folders.
+  4. **Mobile App Integration:** Configured `EXPO_PUBLIC_CLOUDINARY_SIGNING_URL=http://<LAN_IP>:3000/api/cloudinary/sign` in the mobile app's `.env`, resolving the "Cloudinary upload is not configured" error on the Certificates screen.
+- **2026-10-01 (Avatar Enhancement, JSX Syntax Fix & Icon Ligature Restoration):**
+  1. **Fixed JSX Tag Mismatch in `OnboardingApprovals.jsx`:** Resolved `Syntax Error: Expression expected / Unterminated regexp literal` at `</Modal>` caused by a missing opening avatar container div before the `<img>` tag in the Student Registration Review modal. Added `<div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">` wrapper, restoring well-formed JSX structure. Verified production compilation via `next build` (100% success).
+  2. **Default Avatar Standardization:** Integrated `/default-avatar.png` fallback across `OnboardingApprovals.jsx` (list table & review detail modal) and `StudentManagement.jsx` (scholar roster & student details drawer). Updated `src/lib/db.js` so newly initialized student records default to `/default-avatar.png`.
+  3. **Permanent Icon Ligature Restoration & Font Self-Hosting:** Diagnosed root cause of misplaced overlapping letters (e.g. `school`, `how_to_reg`, `notifications`, `search`, `folder_shared`, `verified`). The Google Material Symbols font failed to bind because `@import` inside PostCSS stylesheets was stripped/unresolved, `<head>` in `layout.jsx` lacked direct stylesheet `<link>` tags, and `.material-symbols-outlined` lacked `font-family: 'Material Symbols Outlined' !important`. Downloaded self-hosted `material-symbols-outlined.woff2` and `.ttf` to `public/fonts/`, configured local `@font-face` with `font-display: block`, added font preloading in `src/app/layout.jsx`, and enforced font properties with user-select protection. Layout and icons restored completely.
 - **2026-09-30 (Real-Time Bidirectional Sync, Desert Dossier Theme & WhatsApp Silhouette Avatar):**
   1. **Real-Time Bidirectional Sync Architecture:**
      - Installed `@supabase/supabase-js` in `ADMIN-PANEL-RIMT` and initialized shared client `src/lib/supabaseClient.js` configured with `eventsPerSecond: 10`.
@@ -660,10 +786,6 @@ To ensure that an active session is revoked **immediately** when an administrato
      - `src/app/api/admin/requests/[id]/route.js`: Enhanced with comprehensive dossier payload and section mutation dispatcher with actor tracking.
      - `src/app/api/admin/internships/route.js`: Created route to serve live student internships.
   6. **Automated Testing:** Created `tests/dossier-academic.test.mjs` verifying boundary validation, audit logging, section CRUD, and manual CGPA retention after grades change. All 26/26 tests passed (total test suite: 65/65 passing).
-- **2026-10-01 (Avatar Enhancement, JSX Syntax Fix & Icon Ligature Restoration):**
-  1. **Fixed JSX Tag Mismatch in `OnboardingApprovals.jsx`:** Resolved `Syntax Error: Expression expected / Unterminated regexp literal` at `</Modal>` caused by a missing opening avatar container div before the `<img>` tag in the Student Registration Review modal. Added `<div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary font-bold flex items-center justify-center shrink-0 border border-primary/20 overflow-hidden">` wrapper, restoring well-formed JSX structure. Verified production compilation via `next build` (100% success).
-  2. **Default Avatar Standardization:** Integrated `/default-avatar.png` fallback across `OnboardingApprovals.jsx` (list table & review detail modal) and `StudentManagement.jsx` (scholar roster & student details drawer). Updated `src/lib/db.js` so newly initialized student records default to `/default-avatar.png`.
-  3. **Permanent Icon Ligature Restoration & Font Self-Hosting:** Diagnosed root cause of misplaced overlapping letters (e.g. `school`, `how_to_reg`, `notifications`, `search`, `folder_shared`, `verified`). The Google Material Symbols font failed to bind because `@import` inside PostCSS stylesheets was stripped/unresolved, `<head>` in `layout.jsx` lacked direct stylesheet `<link>` tags, and `.material-symbols-outlined` lacked `font-family: 'Material Symbols Outlined' !important`. Downloaded self-hosted `material-symbols-outlined.woff2` and `.ttf` to `public/fonts/`, configured local `@font-face` with `font-display: block`, added font preloading in `src/app/layout.jsx`, and enforced font properties with user-select protection. Layout and icons restored completely.
 - **2026-09-30 (Fixed Admin Accounts & Signup Lockdown):** Eliminated open admin signup permanently. Hardcoded two authorized administrators — **Raj Kumar** (HOD BCA, password `BCAHOD`) and **Sagrika** (Vice HOD BCA, password `VICEHOD`) — with PBKDF2-SHA256 salted hashes (`rimt-salt-key`, 10,000 iterations). `POST /api/admin/auth/signup` now returns `403 SIGNUP_DISABLED` unconditionally. Login route validates `name` + `password` against Supabase `admins` table with in-memory fallback. `AuthScreen.jsx` updated to Sign In only with warm desert theme (no signup tabs/links). Cleaned up demo/placeholder admin references across `ProfileMenu.jsx`, `ProfileModal.jsx`, and `ProfileTab.jsx`. Migration: `supabase/migrations/20260930_fixed_admin_accounts.sql`.
 - **2026-09-30 (LinkedIn-Style Scholar Dossier & Profile Tracker):** Built comprehensive LinkedIn-style student dossier inspection system for admin portal:
   1. **`StudentLinkedInProfileModal.jsx`** (`src/components/student/`): Full-screen LinkedIn hero cover banner, 120px verified avatar with status badge, legal name, roll number, professional headline, location pin, quick-action buttons (Direct Call, WhatsApp, Email), Academic Score & CGPA tracker with semester SGPA breakdown chart, narrative About/Bio section with skills tags, Featured Projects portfolio cards (GitHub-synced with category, tech stack, and demo links), and Verified Documents vault with live Supabase `student_documents` integration and instant in-modal PDF/image previewer.
@@ -675,29 +797,17 @@ To ensure that an active session is revoked **immediately** when an administrato
 - **2026-09-30 (Student App Bio Field):** Added `bio` state and multiline text input to `EditProfileScreen.jsx` in the mobile app (`APP-RIMIT`). Updated `authService.js` to accept and persist `bio` to Supabase. Cross-compatible with admin LinkedIn-style dossier tracker.
 - **2026-09-29 (Admin Panel Authentication — NEW-FEATURE.md Complete):** Implemented comprehensive Admin Authentication and Session Management for the T&P Admin Portal:
   1. **Database Schema & Adapter:** Added `public.admins` schema in `schema.sql` with unique index on normalized email, active status constraints, and UUID primary keys. Added `getAdminByEmail`, `getAdminById`, `checkAdminEmailExists`, `createAdmin`, and `updateAdmin` in `src/lib/db.js` with in-memory persistence and Supabase synchronization.
-  2. **API Endpoints (`src/app/api/admin/auth/*`):** Created 7 REST route handlers:
-     - `POST /api/admin/auth/signup`: Validates official Gmail (`@gmail.com`), enforces password policy (min 8 chars, 1 uppercase, 1 digit, 1 special symbol), detects duplicate email (409 Conflict), hashes password using Web Crypto PBKDF2, issues session JWT and sets httpOnly `admin_token` cookie.
-     - `POST /api/admin/auth/login`: Authenticates Gmail + password, prevents enumeration, updates `last_login_at`, and issues httpOnly cookie + Bearer token.
-     - `POST /api/admin/auth/logout`: Clears session cookies server-side.
-     - `GET /api/admin/auth/me`: Returns sanitized active admin identity.
-     - `POST /api/admin/auth/profile-pic`: Handles base64/multipart image upload with MIME & size validation.
-     - `PATCH /api/admin/auth/change-password`: Verifies current password before updating to new secure hash.
-     - `POST /api/admin/auth/check-email`: Pre-checks if an email exists for instant UI feedback.
+  2. **API Endpoints (`src/app/api/admin/auth/*`):** Created 7 REST route handlers for signup, login, logout, me, profile-pic, change-password, and check-email.
   3. **Security Middleware:** Enhanced `withAuth` in `src/lib/middleware.js` to extract tokens from cookies or authorization headers, and authenticate admin roles and active status.
-  4. **Frontend UI & Guards:**
-     - Created `AuthScreen.jsx` with institutional RIMT maroon styling, Sign In / Sign Up tabs, inline validation, and demo credentials fill button.
-     - Created `AuthGuard.jsx` to wrap dashboard routes with zero dashboard flash for unauthenticated visitors.
-     - Created `ProfileMenu.jsx` and `ProfileModal.jsx` for dynamic header avatar display, profile inspection, photo upload, password change, and sign out.
-     - Integrated `ProfileTab.jsx` into the main module registry.
-  5. **Verification & Tests:** Created `tests/admin-auth.test.mjs` (18/18 tests pass). Existing `tests/onboarding.test.mjs` (21/21 tests pass). Production build `npm run build` compiled 100% cleanly.
-- **2026-09-29 (Document & Storage Fix):** Fixed 3 critical backend blockers for student document upload (PDF/DOCX): (1) Supabase bucket `student-media` rejected `application/pdf` with HTTP 415 — fixed by setting `allowed_mime_types = null`; (2) Missing `SELECT` + `INSERT` RLS policies on `storage.objects` caused 403 on upload and download — added full CRUD policies; (3) `student_documents` metadata table was not created in live DB (PGRST205) — created migration at `supabase/migrations/20260929_fix_document_storage_and_tables.sql`. Client-side: enabled `copyToCacheDirectory: true` for Android file read permissions, added streaming binary upload fallback, added local device vault persistence when remote storage is unavailable, and improved MIME type detection for DOCX viewers. Replaced real student PII in API docs and quick-test pills with dummy data. All 21/21 onboarding tests pass.
-- **2026-09-29:** Fixed critical "Student record not found" bug in `src/lib/db.js` where approving, rejecting, or revoking a student from the live Supabase queue failed. The issue was caused by: (1) `getAdminWriteHeaders()` requiring `SUPABASE_SERVICE_ROLE_KEY` without falling back to `SUPABASE_KEY` (authorized under RLS), and (2) sending non-existent table columns (`reviewed_by`, `reviewed_at`, `rejection_reason`, etc.) to Supabase, which triggered PGRST204 errors and returned `null` (causing 404 toast). Updated `db.js` to send verified columns (`status`, `updated_at`) to Supabase and keep review metadata in sync. Added `.env.local` with Supabase credentials. Enabled student avatar/photo display in `OnboardingApprovals.jsx` (list table & detail modal) and `StudentManagement.jsx`. All 21/21 onboarding unit tests pass.
-- **2026-09-29:** Normalized student aliases across the admin DB layer (`name`/`full_name`, `roll_no`/`roll_number`, and department/year aliases), added a legacy mobile-format lookup regression test, and verified 21/21 onboarding tests. This confirms local lookup/state behavior only; it does not prove production Supabase writes. If a visible queue row returns `Student record not found` on review, verify the row ID and server `SUPABASE_SERVICE_ROLE_KEY` first. Existing admin UI/design must be preserved unless explicitly requested.
-- **2026-09-29:** Student registrations and counts now use live Supabase records only; the directory no longer displays seeded student details or fabricated KPIs. Added a separate `REVOKED` state, reason, endpoint, and lockout flow. Admin bypass headers are development-only. Live review writes require the migration and server-only key; production also needs an admin-session issuer.
-- **2026-09-29 00:05:00+05:30:** Fixed critical bug in `db.js` where `rejectStudent()` was not persisting `rejection_reason` to Supabase (only saved in memory), and `approveStudent()` was not persisting `reviewed_by`/`reviewed_at` audit trail to Supabase. Both functions now send complete PATCH payloads including rejection_reason, reviewed_by, and reviewed_at to the cloud database. All 15/15 tests passing.
-- **2026-09-28 23:50:00+05:30:** Implemented real-time auto-synchronization and removed all fake mock data. Root cause of API failure (`ReferenceError: token is not defined` in `middleware.js`) identified and fixed with `extractToken(req)`. Fixed UUID regex query bug in `db.js` so hyphenated roll numbers are correctly queried via `roll_no=ilike.*`. Removed hardcoded mock student records (`Gurpreet Singh`, `Navjot Kaur`, etc.) from `db.js` and removed `loadFallbackData` from `OnboardingApprovals.jsx`. Added live 3.5s background polling and "Live DB Sync Active" indicator in the admin UI.
-- **2026-09-28 23:30:00+05:30:** Synced `AGENT.hd` with simplified registration flow. Registration now requires only 4 fields (Name, Roll Number, Department, Year/Semester) — email and password removed. Updated data model docs to match actual Supabase column names (`name`, `roll_no`, `course`, `batch`, `semester`). Department filter in `OnboardingApprovals.jsx` aligned to: BCA, B.Sc IT, B.Sc Cyber Security, B.Sc (Hons) AI & ML. API docs updated to reflect roll-number-only login.
-- **2026-09-28 22:37:00+05:30:** Cleaned up `APP-RIMIT` workspace: removed duplicate files (`Agent.md`, `BRAIN.hd`, `BRAIN.md`). Both workspaces now use only `AGENT.hd` (capital AGENT) as the single master memory file. All 15 unit tests confirmed passing (0 failures).
-- **2026-09-28 22:34:00+05:30:** Consolidated all administrative memory, technical documentation, API specifications, and screen architectures into this single master file: `AGENT.hd`. Removed redundant duplicate files (`Brain.md`, `BRAIN.hd`, `Agent.md`) as requested.
-- **2026-09-28 22:20:00+05:30:** Created `OnboardingApprovals.jsx` view with status counters, detail drawer, and rejection modal with predefined remarks. Added navigation item in `Sidebar.jsx`.
-- **2026-09-28 22:15:00+05:30:** Built Next.js 14 API route handlers (`/api/auth/signup`, `/api/auth/login`, `/api/admin/requests`, `/api/profile`) with PBKDF2 password encryption and live database status guards.
+  4. **Frontend UI & Guards:** Created `AuthScreen.jsx`, `AuthGuard.jsx`, `ProfileMenu.jsx`, `ProfileModal.jsx`. Integrated `ProfileTab.jsx` into the main module registry.
+  5. **Verification & Tests:** `tests/admin-auth.test.mjs` (18/18 pass). `tests/onboarding.test.mjs` (21/21 pass). Production build compiled 100% cleanly.
+- **2026-09-29 (Document & Storage Fix):** Fixed 3 critical backend blockers for student document upload. Created migration `supabase/migrations/20260929_fix_document_storage_and_tables.sql`. All 21/21 onboarding tests pass.
+- **2026-09-29:** Fixed critical "Student record not found" bug in `src/lib/db.js`. Updated `db.js` to send verified columns to Supabase. Added `.env.local` with Supabase credentials. Enabled student avatar display.
+- **2026-09-29:** Normalized student aliases across the admin DB layer. Verified 21/21 onboarding tests.
+- **2026-09-29:** Student registrations and counts now use live Supabase records only. Added `REVOKED` state, reason, endpoint, and lockout flow.
+- **2026-09-29 00:05:** Fixed `rejectStudent()` / `approveStudent()` persistence bug. All 15/15 tests passing.
+- **2026-09-28 23:50:** Implemented real-time auto-synchronization and removed all fake mock data.
+- **2026-09-28 23:30:** Synced docs with simplified registration flow. 4 fields only.
+- **2026-09-28 22:37:** Cleaned up workspace. Only `ADMIN.md` remains as master memory.
+- **2026-09-28 22:20:** Created `OnboardingApprovals.jsx` view.
+- **2026-09-28 22:15:** Built Next.js 14 API route handlers.

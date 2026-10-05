@@ -125,47 +125,61 @@ function SectionCard({ children, className = '' }) {
 /* ── About Section ── */
 function AboutSection({ bio, aboutMe }) {
   const text = bio || aboutMe;
-  if (!text) return null;
   return (
     <SectionCard>
       <SectionHeader icon="person" title="About" />
-      <p className="text-[13px] text-slate-600 leading-relaxed whitespace-pre-line">{text}</p>
+      {text ? (
+        <p className="text-[13px] text-slate-600 leading-relaxed whitespace-pre-line">{text}</p>
+      ) : (
+        <p className="text-[13px] text-slate-400 italic">No summary bio provided yet.</p>
+      )}
     </SectionCard>
   );
 }
 
 /* ── Skills Section ── */
 function SkillsSection({ skills }) {
-  if (!skills || skills.length === 0) return null;
+  const hasSkills = skills && skills.length > 0;
   return (
     <SectionCard>
-      <SectionHeader icon="code" title="Tech Stack & Skills" count={skills.length} />
-      <div className="flex flex-wrap gap-2">
-        {skills.map((skill, i) => {
-          const name = typeof skill === 'string' ? skill : skill?.name || '';
-          if (!name) return null;
-          const p = skillPalette(name);
-          return (
-            <span
-              key={i}
-              className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-transform duration-200 hover:scale-105 ${p.bg} ${p.text} ${p.border}`}
-            >
-              {name}
-            </span>
-          );
-        })}
-      </div>
+      <SectionHeader icon="code" title="Tech Stack &amp; Skills" count={hasSkills ? skills.length : 0} />
+      {hasSkills ? (
+        <div className="flex flex-wrap gap-2">
+          {skills.map((skill, i) => {
+            const name = typeof skill === 'string' ? skill : skill?.name || '';
+            if (!name) return null;
+            const p = skillPalette(name);
+            return (
+              <span
+                key={i}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-transform duration-200 hover:scale-105 ${p.bg} ${p.text} ${p.border}`}
+              >
+                {name}
+              </span>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="py-4 text-center text-slate-400 text-xs">
+          No technical skills listed yet.
+        </div>
+      )}
     </SectionCard>
   );
 }
 
 /* ── Projects Section (GitHub-Style) ── */
 function ProjectsSection({ projects }) {
-  if (!projects || projects.length === 0) return null;
+  const hasProjects = projects && projects.length > 0;
   return (
     <SectionCard>
-      <SectionHeader icon="folder_open" title="Projects" count={projects.length} />
-      <div className="grid grid-cols-1 gap-3">
+      <SectionHeader icon="folder_open" title="Projects" count={hasProjects ? projects.length : 0} />
+      {!hasProjects ? (
+        <div className="py-4 text-center text-slate-400 text-xs">
+          No featured projects uploaded yet.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3">
         {projects.map((proj, i) => {
           const title = proj.title || 'Untitled Project';
           const desc = proj.description || proj.about || '';
@@ -269,6 +283,7 @@ function ProjectsSection({ projects }) {
           );
         })}
       </div>
+    )}
     </SectionCard>
   );
 }
@@ -344,14 +359,19 @@ function toCloudinaryImageUrl(url) {
 }
 
 function CertificatesSection({ certificates }) {
-  if (!certificates || certificates.length === 0) return null;
+  const hasCerts = certificates && certificates.length > 0;
   const [previewUrl, setPreviewUrl] = useState(null);
 
   return (
     <>
       <SectionCard>
-        <SectionHeader icon="workspace_premium" title="Uploaded Certificates &amp; Documents" count={certificates.length} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <SectionHeader icon="workspace_premium" title="Uploaded Certificates &amp; Documents" count={hasCerts ? certificates.length : 0} />
+        {!hasCerts ? (
+          <div className="py-4 text-center text-slate-400 text-xs">
+            No verified certificates uploaded yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {certificates.map((cert, i) => {
             const title = cert.title || 'Certificate';
             const issuer = cert.issuer || '';
@@ -434,6 +454,7 @@ function CertificatesSection({ certificates }) {
             );
           })}
         </div>
+      )}
       </SectionCard>
 
       {/* Full-Screen Certificate Preview Overlay — always renders as <img> */}
@@ -487,45 +508,55 @@ function CertificatesSection({ certificates }) {
 
 /* ── Academics Quick Card ── */
 function AcademicsCard({ data }) {
+  const dept = data.department || data.course || '';
+  const batch = data.current_semester || data.year_semester || data.batch || data.semester || '';
+  const rollNo = data.roll_no || data.roll_number || data.roll || '';
   const hasCgpa = data.cgpa !== null && data.cgpa !== undefined && !isNaN(Number(data.cgpa));
   const hasAttendance = data.attendance_rate !== null && data.attendance_rate !== undefined && data.attendance_rate !== '';
   const hasStanding = !!data.academic_standing;
-  const hasSemester = !!data.current_semester;
+  const hasScore = data.academic_score !== null && data.academic_score !== undefined;
 
-  if (!hasCgpa && !hasAttendance && !hasStanding) return null;
-
-  const cgpa = hasCgpa ? Number(data.cgpa).toFixed(2) : null;
+  const cgpa = hasCgpa ? Number(data.cgpa).toFixed(2) : '—';
   const attendance = hasAttendance
     ? (String(data.attendance_rate).includes('%') ? data.attendance_rate : `${data.attendance_rate}%`)
-    : null;
+    : '—';
 
   return (
     <SectionCard>
       <SectionHeader icon="school" title="Academic Record" />
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {cgpa && (
-          <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-            <div className="text-xl font-extrabold text-slate-800 tracking-tight">{cgpa}</div>
-            <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">CGPA</div>
+        <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+          <div className="text-xl font-extrabold text-slate-800 tracking-tight">{cgpa}</div>
+          <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">CGPA</div>
+        </div>
+        <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+          <div className="text-xl font-extrabold text-slate-800 tracking-tight">
+            {hasScore ? `${Number(data.academic_score).toFixed(1)}%` : '—'}
           </div>
-        )}
-        {data.academic_score && (
-          <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-            <div className="text-xl font-extrabold text-slate-800 tracking-tight">{Number(data.academic_score).toFixed(1)}%</div>
-            <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Score</div>
+          <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Score</div>
+        </div>
+        <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+          <div className="text-xl font-extrabold text-slate-800 tracking-tight">{attendance}</div>
+          <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Attendance</div>
+        </div>
+        <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
+          <div className="text-xl font-extrabold text-slate-800 tracking-tight truncate px-1">
+            {batch || 'Current'}
           </div>
-        )}
-        {attendance && (
-          <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-            <div className="text-xl font-extrabold text-slate-800 tracking-tight">{attendance}</div>
-            <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Attendance</div>
-          </div>
-        )}
-        {hasSemester && (
-          <div className="text-center p-3 rounded-xl bg-slate-50/80 border border-slate-100">
-            <div className="text-xl font-extrabold text-slate-800 tracking-tight">{data.current_semester}</div>
-            <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Semester</div>
-          </div>
+          <div className="text-[10px] text-slate-500 font-semibold mt-0.5 uppercase tracking-wider">Semester</div>
+        </div>
+      </div>
+      {/* Institutional Details */}
+      <div className="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-[15px] text-slate-400">account_balance</span>
+          <span className="font-semibold text-slate-700">RIMT University</span>
+          {dept && <span>· {dept}</span>}
+        </div>
+        {rollNo && (
+          <span className="font-mono text-[11px] bg-slate-100 px-2 py-0.5 rounded text-slate-600">
+            Roll: {rollNo}
+          </span>
         )}
       </div>
       {hasStanding && (
@@ -592,25 +623,6 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
     return () => { mounted = false; };
   }, [isOpen, studentId]);
 
-  /* ── Scroll to section ── */
-  const scrollToSection = (navId) => {
-    setActiveNav(navId);
-    const refMap = {
-      overview: aboutRef,
-      skills: skillsRef,
-      projects: projectsRef,
-      internships: internshipsRef,
-      certificates: certificatesRef,
-      academics: academicsRef,
-    };
-    const target = refMap[navId]?.current;
-    if (target && scrollRef.current) {
-      const container = scrollRef.current;
-      const top = target.offsetTop - container.offsetTop - 80;
-      container.scrollTo({ top, behavior: 'smooth' });
-    }
-  };
-
   /* ── Lock body scroll ── */
   useEffect(() => {
     if (isOpen) {
@@ -626,8 +638,6 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
     }
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   /* ── Normalize Data ── */
   const d = dossier || student || {};
   const fullName = d.full_name || d.name || 'RIMT Scholar';
@@ -639,20 +649,113 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
   const email = d.email || '';
   const phone = d.phone || '';
   const avatarUrl = d.avatar_url || d.avatar || null;
-  const bannerUrl = d.banner_url || null;
+  const bannerUrl = d.banner_url || d.banner || d.cover_url || null;
   const location = d.location || 'RIMT University, Mandi Gobindgarh, Punjab';
 
   const strength = computeStrength(d);
   const meta = strengthMeta(strength.pct);
 
+  const hasInternships = strength.internships && strength.internships.length > 0;
+
   const navItems = [
-    { id: 'overview', label: 'About', icon: 'person', show: true },
-    { id: 'skills', label: 'Skills', icon: 'code', show: strength.skills.length > 0 },
-    { id: 'projects', label: 'Projects', icon: 'folder_open', show: strength.projects.length > 0 },
-    { id: 'internships', label: 'Experience', icon: 'work', show: strength.internships.length > 0 },
-    { id: 'certificates', label: 'Certifications', icon: 'workspace_premium', show: strength.certs.length > 0 },
-    { id: 'academics', label: 'Academics', icon: 'school', show: !!(d.cgpa || d.attendance_rate || d.academic_standing) },
-  ].filter((n) => n.show);
+    { id: 'overview', label: 'About', icon: 'person', ref: aboutRef },
+    { id: 'skills', label: 'Skills', icon: 'code', ref: skillsRef },
+    { id: 'projects', label: 'Projects', icon: 'folder_open', ref: projectsRef },
+    ...(hasInternships ? [{ id: 'internships', label: 'Experience', icon: 'work', ref: internshipsRef }] : []),
+    { id: 'certificates', label: 'Certificates', icon: 'workspace_premium', ref: certificatesRef },
+    { id: 'academics', label: 'Academics', icon: 'school', ref: academicsRef },
+  ];
+
+  const isClickScrolling = useRef(false);
+  const clickTimeoutRef = useRef(null);
+  const tabsContainerRef = useRef(null);
+
+  /* ── Scroll Spy: Automatically update active tab on scroll ── */
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || loading) return;
+
+    const handleScroll = () => {
+      if (isClickScrolling.current) return;
+
+      const containerRect = container.getBoundingClientRect();
+      const scrollTop = container.scrollTop;
+      const scrollHeight = container.scrollHeight;
+      const clientHeight = container.clientHeight;
+
+      // Bottom reached -> activate Academics (last tab)
+      if (scrollTop + clientHeight >= scrollHeight - 35) {
+        const last = navItems[navItems.length - 1];
+        if (last && last.id !== activeNav) {
+          setActiveNav(last.id);
+        }
+        return;
+      }
+
+      // Check each section position relative to container
+      const threshold = 130;
+      let currentSectionId = navItems[0]?.id || 'overview';
+
+      for (let i = 0; i < navItems.length; i++) {
+        const item = navItems[i];
+        const el = item.ref?.current;
+        if (!el) continue;
+        const rect = el.getBoundingClientRect();
+        const topRelativeToContainer = rect.top - containerRect.top;
+
+        if (topRelativeToContainer <= threshold) {
+          currentSectionId = item.id;
+        }
+      }
+
+      setActiveNav((prev) => (prev !== currentSectionId ? currentSectionId : prev));
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+    };
+  }, [navItems, loading, activeNav]);
+
+  /* ── Keep active tab in view horizontally ── */
+  useEffect(() => {
+    if (!tabsContainerRef.current) return;
+    const btn = tabsContainerRef.current.querySelector(`[data-tab-id="${activeNav}"]`);
+    if (btn) {
+      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [activeNav]);
+
+  /* ── Scroll to section smoothly on click ── */
+  const scrollToSection = (navId) => {
+    setActiveNav(navId);
+    isClickScrolling.current = true;
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    clickTimeoutRef.current = setTimeout(() => {
+      isClickScrolling.current = false;
+    }, 650);
+
+    const refMap = {
+      overview: aboutRef,
+      skills: skillsRef,
+      projects: projectsRef,
+      internships: internshipsRef,
+      certificates: certificatesRef,
+      academics: academicsRef,
+    };
+    const target = refMap[navId]?.current;
+    if (target && scrollRef.current) {
+      const container = scrollRef.current;
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const relativeTop = targetRect.top - containerRect.top + container.scrollTop - 15;
+      container.scrollTo({ top: Math.max(0, relativeTop), behavior: 'smooth' });
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -690,21 +793,38 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
         {/* ═══ HEADER: Banner + Avatar + Identity ═══ */}
         <div className="relative shrink-0">
           {/* Banner */}
-          <div className="h-[130px] relative overflow-hidden">
+          <div className="h-[135px] relative overflow-hidden">
             {bannerUrl ? (
-              <img src={bannerUrl} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <div
-                className="w-full h-full"
-                style={{
-                  background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #334155 100%)',
+              <img
+                src={bannerUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  if (e.currentTarget.nextElementSibling) {
+                    e.currentTarget.nextElementSibling.style.display = 'block';
+                  }
                 }}
               />
-            )}
+            ) : null}
+            <div
+              className={`w-full h-full relative ${bannerUrl ? 'hidden' : 'block'}`}
+              style={{
+                background: `
+                  radial-gradient(120% 140% at 85% 0%, rgba(59,130,246,0.28) 0%, transparent 55%),
+                  radial-gradient(90% 120% at 0% 100%, rgba(255,255,255,0.18) 0%, transparent 60%),
+                  linear-gradient(135deg, #8A1228 0%, #A31D35 55%, #6E0E20 100%)
+                `,
+              }}
+            >
+              {/* Subtle inner sheen */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/15 pointer-events-none" />
+            </div>
+
             {/* Subtle shine */}
             <div className="talent-shimmer absolute inset-0 pointer-events-none" />
             {/* Gradient Fade */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f8f9fb] to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f8f9fb] to-transparent pointer-events-none" />
           </div>
 
           {/* Close button */}
@@ -783,21 +903,42 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
           </div>
 
           {/* ── Section Nav Tabs ── */}
-          <div className="px-6 flex items-center gap-1 overflow-x-auto scrollbar-none py-2 border-b border-slate-200/60 bg-white/50 backdrop-blur-sm">
-            {navItems.map((nav) => (
-              <button
-                key={nav.id}
-                onClick={() => scrollToSection(nav.id)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-all duration-200 shrink-0 ${
-                  activeNav === nav.id
-                    ? 'bg-slate-800 text-white shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[15px]">{nav.icon}</span>
-                {nav.label}
-              </button>
-            ))}
+          <div
+            ref={tabsContainerRef}
+            className="px-6 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2 border-b border-slate-200/60 bg-white/70 backdrop-blur-md"
+          >
+            {navItems.map((nav) => {
+              const isActive = activeNav === nav.id;
+              return (
+                <button
+                  key={nav.id}
+                  data-tab-id={nav.id}
+                  onClick={() => scrollToSection(nav.id)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12px] font-bold transition-all duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D35] focus-visible:ring-offset-2 ${
+                    isActive
+                      ? 'text-white'
+                      : 'text-slate-500 hover:text-[#A31D35] hover:bg-[#FDECEF]'
+                  }`}
+                  style={
+                    isActive
+                      ? {
+                          background: 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)',
+                          boxShadow: '0 8px 20px -6px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)',
+                        }
+                      : {}
+                  }
+                >
+                  <span
+                    className={`material-symbols-outlined text-[15px] transition-colors duration-200 ${
+                      isActive ? 'text-white' : 'text-slate-400 group-hover:text-[#A31D35]'
+                    }`}
+                  >
+                    {nav.icon}
+                  </span>
+                  <span>{nav.label}</span>
+                </button>
+              );
+            })}
 
             {/* Contact buttons on the right */}
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
@@ -888,10 +1029,12 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
                 <ProjectsSection projects={strength.projects} />
               </div>
 
-              {/* Internships */}
-              <div ref={internshipsRef}>
-                <InternshipsSection internships={strength.internships} />
-              </div>
+              {/* Internships (Experience) */}
+              {hasInternships && (
+                <div ref={internshipsRef}>
+                  <InternshipsSection internships={strength.internships} />
+                </div>
+              )}
 
               {/* Certificates */}
               <div ref={certificatesRef}>
