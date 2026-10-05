@@ -1492,3 +1492,48 @@ export async function updateAdmin(id, updates) {
 
   return updatedRecord;
 }
+
+/**
+ * Retrieve all student internships aggregated across approved students.
+ */
+export async function getAllStudentInternships() {
+  const allStudents = await getRequests({ status: 'APPROVED' });
+  const internships = [];
+
+  for (const student of allStudents) {
+    let studentInternships = [];
+    if (Array.isArray(student.internships)) {
+      studentInternships = student.internships;
+    } else if (typeof student.internships === 'string') {
+      try {
+        const parsed = JSON.parse(student.internships);
+        if (Array.isArray(parsed)) studentInternships = parsed;
+      } catch { /* ignore */ }
+    }
+    if (student.admin_notes) {
+      try {
+        const parsedNotes = JSON.parse(student.admin_notes);
+        if (Array.isArray(parsedNotes?.internships)) {
+          const seenIds = new Set(studentInternships.map((i) => i.id));
+          parsedNotes.internships.forEach((i) => {
+            if (!seenIds.has(i.id)) {
+              seenIds.add(i.id);
+              studentInternships.push(i);
+            }
+          });
+        }
+      } catch { /* ignore */ }
+    }
+    studentInternships.forEach((intern) => {
+      internships.push({
+        ...intern,
+        student_id: student.id,
+        student_name: student.full_name || student.name || '',
+        student_roll: student.roll_number || student.roll_no || '',
+        student_department: student.department || student.course || '',
+      });
+    });
+  }
+
+  return internships;
+}
