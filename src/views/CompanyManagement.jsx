@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import TalentProfileModal from '../components/student/TalentProfileModal';
+import { DEFAULT_CAMPUS_BANNER, DEFAULT_CAMPUS_BANNER_FALLBACK } from '../constants/tokens';
 
 /* ───────────────────── Profile Strength Utility ───────────────────── */
 function computeProfileStrength(student) {
@@ -609,35 +610,24 @@ export default function CompanyManagement({ globalSearch = '' }) {
               <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full duration-1000 bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none transition-transform z-10" />
 
               {/* Banner + Avatar */}
-              <div className="relative h-20 overflow-hidden rounded-t-[24px]">
-                {s.banner_url ? (
-                  <img
-                    src={s.banner_url}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      if (e.currentTarget.nextElementSibling) {
-                        e.currentTarget.nextElementSibling.style.display = 'block';
-                      }
-                    }}
-                  />
-                ) : null}
-                <div
-                  className={`w-full h-full relative ${s.banner_url ? 'hidden' : 'block'}`}
-                  style={{
-                    background: `
-                      radial-gradient(120% 140% at 85% 0%, rgba(59,130,246,0.28) 0%, transparent 55%),
-                      radial-gradient(90% 120% at 0% 100%, rgba(255,255,255,0.18) 0%, transparent 60%),
-                      linear-gradient(135deg, #8A1228 0%, #A31D35 55%, #6E0E20 100%)
-                    `,
+              <div className="relative h-20 overflow-hidden rounded-t-[24px] bg-slate-900">
+                <img
+                  src={s.banner_url || DEFAULT_CAMPUS_BANNER}
+                  alt=""
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  onError={(e) => {
+                    if (e.currentTarget.src !== DEFAULT_CAMPUS_BANNER && !e.currentTarget.src.includes('campus-banner.jpg')) {
+                      e.currentTarget.src = DEFAULT_CAMPUS_BANNER;
+                    } else if (!e.currentTarget.src.includes(DEFAULT_CAMPUS_BANNER_FALLBACK)) {
+                      e.currentTarget.src = DEFAULT_CAMPUS_BANNER_FALLBACK;
+                    }
                   }}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/15 pointer-events-none" />
-                </div>
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/20 pointer-events-none" />
+
                 {/* Profile Strength Badge */}
                 <div className={`absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-md border ${s._strengthLabel.bg} ${s._strengthLabel.color} ${s._strengthLabel.ring}`}
-                  style={{ borderColor: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}
+                  style={{ borderColor: 'rgba(255,255,255,0.6)', boxShadow: '0 2px 6px rgba(0,0,0,0.12)' }}
                 >
                   <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
                   {s._strength.pct}% · {s._strengthLabel.label}

@@ -5,6 +5,7 @@
  */
 
 import { hashPassword } from './auth.js';
+import { DEFAULT_CAMPUS_BANNER } from '../constants/tokens.js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwghazyfxhypzkadqfnn.supabase.co';
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_i_u2xeBeomYmIqQ2XhD66Q_jD0bb4XN';
@@ -47,7 +48,7 @@ function normalizeStudentRecord(student) {
   const bio = student.bio || student.about || null;
   const aboutMe = student.about_me || null;
   const headline = student.headline || (department ? `${department} Scholar @ RIMT University | Software Engineer` : 'RIMT University Scholar');
-  const bannerUrl = student.banner_url || student.banner || null;
+  const bannerUrl = student.banner_url || student.banner || DEFAULT_CAMPUS_BANNER;
   const cgpa = student.cgpa || student.academic_score_cgpa || null;
   const academicScore = student.academic_score || (cgpa ? Number((Number(cgpa) * 9.5).toFixed(1)) : null);
 
@@ -1105,7 +1106,7 @@ export async function getStudentDossier(idOrRoll) {
     bio: realBio,
     about_me: realAboutMe,
     avatar_url: student.avatar_url || student.avatar || null,
-    banner_url: student.banner_url || null,
+    banner_url: student.banner_url || DEFAULT_CAMPUS_BANNER,
     location: 'RIMT University, Mandi Gobindgarh, Punjab, India',
     cgpa: realCgpa,
     academic_score: percentage,

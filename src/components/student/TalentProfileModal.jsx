@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { DEFAULT_CAMPUS_BANNER, DEFAULT_CAMPUS_BANNER_FALLBACK } from '../../constants/tokens';
 
 /* ══════════════════════════════════════════════════════════════
    TalentProfileModal — Read-Only Student Portfolio Viewer
@@ -655,45 +656,60 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
   const strength = computeStrength(d);
   const meta = strengthMeta(strength.pct);
 
+  const activeNavRef = useRef('overview');
+  activeNavRef.current = activeNav;
+
   const hasInternships = strength.internships && strength.internships.length > 0;
 
-  const navItems = [
-    { id: 'overview', label: 'About', icon: 'person', ref: aboutRef },
-    { id: 'skills', label: 'Skills', icon: 'code', ref: skillsRef },
-    { id: 'projects', label: 'Projects', icon: 'folder_open', ref: projectsRef },
-    ...(hasInternships ? [{ id: 'internships', label: 'Experience', icon: 'work', ref: internshipsRef }] : []),
-    { id: 'certificates', label: 'Certificates', icon: 'workspace_premium', ref: certificatesRef },
-    { id: 'academics', label: 'Academics', icon: 'school', ref: academicsRef },
-  ];
+  const navItems = useMemo(
+    () => [
+      { id: 'overview', label: 'About', icon: 'person', ref: aboutRef },
+      { id: 'skills', label: 'Skills', icon: 'code', ref: skillsRef },
+      { id: 'projects', label: 'Projects', icon: 'folder_open', ref: projectsRef },
+      ...(hasInternships ? [{ id: 'internships', label: 'Experience', icon: 'work', ref: internshipsRef }] : []),
+      { id: 'certificates', label: 'Certificates', icon: 'workspace_premium', ref: certificatesRef },
+      { id: 'academics', label: 'Academics', icon: 'school', ref: academicsRef },
+    ],
+    [hasInternships]
+  );
 
   const isClickScrolling = useRef(false);
   const clickTimeoutRef = useRef(null);
   const tabsContainerRef = useRef(null);
+  const rafRef = useRef(null);
 
-  /* ── Scroll Spy: Automatically update active tab on scroll ── */
+  /* ── Scroll Spy: Automatically update active tab on scroll with zero jitter ── */
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || loading) return;
 
-    const handleScroll = () => {
+    const computeActiveSection = () => {
       if (isClickScrolling.current) return;
 
-      const containerRect = container.getBoundingClientRect();
       const scrollTop = container.scrollTop;
       const scrollHeight = container.scrollHeight;
       const clientHeight = container.clientHeight;
 
-      // Bottom reached -> activate Academics (last tab)
+      // 1. If at or near top (< 50px), activate first tab (overview)
+      if (scrollTop < 50) {
+        if (activeNavRef.current !== navItems[0]?.id) {
+          setActiveNav(navItems[0]?.id || 'overview');
+        }
+        return;
+      }
+
+      // 2. Bottom reached -> activate last tab
       if (scrollTop + clientHeight >= scrollHeight - 35) {
         const last = navItems[navItems.length - 1];
-        if (last && last.id !== activeNav) {
+        if (last && activeNavRef.current !== last.id) {
           setActiveNav(last.id);
         }
         return;
       }
 
-      // Check each section position relative to container
-      const threshold = 130;
+      // 3. Check section positions relative to container
+      const containerRect = container.getBoundingClientRect();
+      const threshold = 90;
       let currentSectionId = navItems[0]?.id || 'overview';
 
       for (let i = 0; i < navItems.length; i++) {
@@ -708,34 +724,64 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
         }
       }
 
-      setActiveNav((prev) => (prev !== currentSectionId ? currentSectionId : prev));
+      if (activeNavRef.current !== currentSectionId) {
+        setActiveNav(currentSectionId);
+      }
+    };
+
+    const handleScroll = () => {
+      if (isClickScrolling.current) return;
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(computeActiveSection);
+    };
+
+    const handleUserInteraction = () => {
+      isClickScrolling.current = false;
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
+    container.addEventListener('wheel', handleUserInteraction, { passive: true });
+    container.addEventListener('touchmove', handleUserInteraction, { passive: true });
+
+    computeActiveSection();
 
     return () => {
       container.removeEventListener('scroll', handleScroll);
+      container.removeEventListener('wheel', handleUserInteraction);
+      container.removeEventListener('touchmove', handleUserInteraction);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
     };
-  }, [navItems, loading, activeNav]);
+  }, [navItems, loading]);
 
-  /* ── Keep active tab in view horizontally ── */
+  /* ── Keep active tab in view horizontally without disrupting vertical scroll ── */
   useEffect(() => {
-    if (!tabsContainerRef.current) return;
-    const btn = tabsContainerRef.current.querySelector(`[data-tab-id="${activeNav}"]`);
+    const tabsContainer = tabsContainerRef.current;
+    if (!tabsContainer) return;
+
+    const btn = tabsContainer.querySelector(`[data-tab-id="${activeNav}"]`);
     if (btn) {
-      btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      // Calculate scroll offset strictly within the horizontal tabs container
+      const btnOffsetLeft = btn.offsetLeft;
+      const btnWidth = btn.offsetWidth;
+      const containerWidth = tabsContainer.clientWidth;
+      const targetLeft = btnOffsetLeft - containerWidth / 2 + btnWidth / 2;
+
+      tabsContainer.scrollTo({
+        left: Math.max(0, targetLeft),
+        behavior: 'smooth',
+      });
     }
   }, [activeNav]);
 
   /* ── Scroll to section smoothly on click ── */
   const scrollToSection = (navId) => {
+    if (activeNavRef.current === navId && !isClickScrolling.current) return;
+
     setActiveNav(navId);
     isClickScrolling.current = true;
     if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
-    clickTimeoutRef.current = setTimeout(() => {
-      isClickScrolling.current = false;
-    }, 650);
 
     const refMap = {
       overview: aboutRef,
@@ -745,14 +791,25 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
       certificates: certificatesRef,
       academics: academicsRef,
     };
-    const target = refMap[navId]?.current;
-    if (target && scrollRef.current) {
+
+    if (scrollRef.current) {
       const container = scrollRef.current;
-      const containerRect = container.getBoundingClientRect();
-      const targetRect = target.getBoundingClientRect();
-      const relativeTop = targetRect.top - containerRect.top + container.scrollTop - 15;
-      container.scrollTo({ top: Math.max(0, relativeTop), behavior: 'smooth' });
+      if (navId === 'overview') {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        const target = refMap[navId]?.current;
+        if (target) {
+          const containerRect = container.getBoundingClientRect();
+          const targetRect = target.getBoundingClientRect();
+          const relativeTop = targetRect.top - containerRect.top + container.scrollTop - 14;
+          container.scrollTo({ top: Math.max(0, relativeTop), behavior: 'smooth' });
+        }
+      }
     }
+
+    clickTimeoutRef.current = setTimeout(() => {
+      isClickScrolling.current = false;
+    }, 750);
   };
 
   if (!isOpen) return null;
@@ -793,44 +850,35 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
         {/* ═══ HEADER: Banner + Avatar + Identity ═══ */}
         <div className="relative shrink-0">
           {/* Banner */}
-          <div className="h-[135px] relative overflow-hidden">
-            {bannerUrl ? (
-              <img
-                src={bannerUrl}
-                alt=""
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  if (e.currentTarget.nextElementSibling) {
-                    e.currentTarget.nextElementSibling.style.display = 'block';
-                  }
-                }}
-              />
-            ) : null}
-            <div
-              className={`w-full h-full relative ${bannerUrl ? 'hidden' : 'block'}`}
-              style={{
-                background: `
-                  radial-gradient(120% 140% at 85% 0%, rgba(59,130,246,0.28) 0%, transparent 55%),
-                  radial-gradient(90% 120% at 0% 100%, rgba(255,255,255,0.18) 0%, transparent 60%),
-                  linear-gradient(135deg, #8A1228 0%, #A31D35 55%, #6E0E20 100%)
-                `,
+          <div className="h-[140px] relative overflow-hidden bg-slate-900">
+            <img
+              src={bannerUrl || DEFAULT_CAMPUS_BANNER}
+              alt="Campus Cover Banner"
+              className="w-full h-full object-cover object-center"
+              onError={(e) => {
+                if (e.currentTarget.src !== DEFAULT_CAMPUS_BANNER && !e.currentTarget.src.includes('campus-banner.jpg')) {
+                  e.currentTarget.src = DEFAULT_CAMPUS_BANNER;
+                } else if (!e.currentTarget.src.includes(DEFAULT_CAMPUS_BANNER_FALLBACK)) {
+                  e.currentTarget.src = DEFAULT_CAMPUS_BANNER_FALLBACK;
+                }
               }}
-            >
-              {/* Subtle inner sheen */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/15 pointer-events-none" />
-            </div>
+            />
 
-            {/* Subtle shine */}
+            {/* Top dark gradient for crisp close button and high contrast */}
+            <div className="absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/50 via-black/20 to-transparent pointer-events-none" />
+
+            {/* Subtle sheen shimmer */}
             <div className="talent-shimmer absolute inset-0 pointer-events-none" />
-            {/* Gradient Fade */}
-            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f8f9fb] to-transparent pointer-events-none" />
+
+            {/* Gradient Fade to modal surface */}
+            <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f8f9fb] via-[#f8f9fb]/40 to-transparent pointer-events-none" />
           </div>
 
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/30 backdrop-blur-md text-white/90 hover:text-white hover:bg-black/50 flex items-center justify-center transition-all z-20"
+            type="button"
+            className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-md text-white/90 hover:text-white hover:bg-black/60 flex items-center justify-center transition-all z-20 shadow-sm"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -905,7 +953,7 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
           {/* ── Section Nav Tabs ── */}
           <div
             ref={tabsContainerRef}
-            className="px-6 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2 border-b border-slate-200/60 bg-white/70 backdrop-blur-md"
+            className="px-6 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-2 border-b border-slate-200/60 bg-white/80 backdrop-blur-md sticky top-0 z-20"
           >
             {navItems.map((nav) => {
               const isActive = activeNav === nav.id;
@@ -913,23 +961,24 @@ export default function TalentProfileModal({ student, isOpen, onClose }) {
                 <button
                   key={nav.id}
                   data-tab-id={nav.id}
+                  type="button"
                   onClick={() => scrollToSection(nav.id)}
-                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12px] font-bold transition-all duration-200 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D35] focus-visible:ring-offset-2 ${
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12px] font-bold transition-colors duration-150 shrink-0 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A31D35] focus-visible:ring-offset-2 ${
                     isActive
-                      ? 'text-white'
+                      ? 'text-white shadow-sm'
                       : 'text-slate-500 hover:text-[#A31D35] hover:bg-[#FDECEF]'
                   }`}
                   style={
                     isActive
                       ? {
                           background: 'linear-gradient(135deg, #A31D35 0%, #8A1228 100%)',
-                          boxShadow: '0 8px 20px -6px rgba(138, 18, 40, .55), inset 0 1px 0 rgba(255, 255, 255, .35)',
+                          boxShadow: '0 4px 14px -3px rgba(138, 18, 40, .45), inset 0 1px 0 rgba(255, 255, 255, .3)',
                         }
                       : {}
                   }
                 >
                   <span
-                    className={`material-symbols-outlined text-[15px] transition-colors duration-200 ${
+                    className={`material-symbols-outlined text-[15px] transition-colors duration-150 ${
                       isActive ? 'text-white' : 'text-slate-400 group-hover:text-[#A31D35]'
                     }`}
                   >

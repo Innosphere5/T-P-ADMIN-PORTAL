@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { DEFAULT_CAMPUS_BANNER, DEFAULT_CAMPUS_BANNER_FALLBACK } from '../../constants/tokens';
 
 const getFileExtension = (fileName = '') => fileName.split('.').pop()?.toLowerCase() || '';
 const getFileMimeType = (file) => {
@@ -225,8 +226,7 @@ export default function StudentLinkedInProfileModal({
   const email = data.email || (rollNo !== '—' ? `${rollNo.toLowerCase()}@rimt.ac.in` : `${fullName.toLowerCase().replace(/\s+/g, '.')}@rimt.ac.in`);
   const headline = data.headline || `${dept} Scholar @ RIMT University`;
   const status = (data.status || 'PENDING').toUpperCase();
-  const avatarUrl = data.avatar_url || data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(fullName)}&background=8B1D2C&color=fff&size=256&bold=true`;
-  const bannerUrl = data.banner_url || 'https://images.unsplash.com/photo-1562774053-701939374585?w=1600&auto=format&fit=crop&q=80';
+  const bannerUrl = data.banner_url || DEFAULT_CAMPUS_BANNER;
 
   // Real academic metrics — NO fake fallbacks
   const hasCgpa = data.cgpa !== null && data.cgpa !== undefined && !isNaN(Number(data.cgpa));
@@ -1240,7 +1240,14 @@ export default function StudentLinkedInProfileModal({
               <img
                 src={bannerUrl}
                 alt="Profile Banner"
-                className="w-full h-full object-cover opacity-60 mix-blend-overlay"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  if (e.currentTarget.src !== DEFAULT_CAMPUS_BANNER && !e.currentTarget.src.includes('campus-banner.jpg')) {
+                    e.currentTarget.src = DEFAULT_CAMPUS_BANNER;
+                  } else if (!e.currentTarget.src.includes(DEFAULT_CAMPUS_BANNER_FALLBACK)) {
+                    e.currentTarget.src = DEFAULT_CAMPUS_BANNER_FALLBACK;
+                  }
+                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
 

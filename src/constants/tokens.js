@@ -1,3 +1,7 @@
+export const DEFAULT_CAMPUS_BANNER = '/campus-banner.jpg';
+export const DEFAULT_CAMPUS_BANNER_FALLBACK =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuDU0WxpQlbpxQiarnBUYXOm-UdffEHgfxRgYqHcpYW81UL5rGmsBSXxfhK8URFbOue13YJBfR1xcybNvdgqxCugUlL7eXsIsoI1LErveZBZyvEmMH4tTZ6HZdrrNzGqBBtdwIM_rGSe9idFsJn4uZz8vYonAF5dSDL1gvVbZ7xNazKnW4Gju4oR13POPiAN5oPuq68udftDyi3-cSHXEx6Exzkh1oitFx8Od_g_DO9GpZbD8BgpyZZD2A';
+
 export const COLORS = {
   primary: '#8B1D2C', // Deep Academic Maroon
   primaryHover: '#6E1521',
