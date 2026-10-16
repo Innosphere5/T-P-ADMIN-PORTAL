@@ -977,6 +977,17 @@ NEXT_PUBLIC_SUPABASE_KEY=<anon-key>
      - `companyRegister({company_name, recruiter_name, email, password, industry})`: POST to `/api/company/auth/register`, stores JWT in localStorage, saves account session.
      - `companyLogin({email, password, remember_me})`: POST to `/api/company/auth/login`, stores JWT.
      - `companyGoogleLogin({email, name, avatar_url, company_name})`: POST to `/api/company/auth/google`, stores JWT.
+- **2026-10-10 (CVForge Student Resume Integration, Direct Intent PDF Viewing & Zero-Overflow Layout):**
+  1. **CVForge Student Resume Suite Synchronization:**
+     - The paired student mobile app (`APP-RIMT-BCA`) now features the complete **CVForge Institutional Resume Builder** (`ResumeScreen.jsx` and `resumeService.js`).
+     - Supports 4 official ATS-certified templates (`navy_ledger`, `richard_sanchez`, `herman_walton`, `sunny_singh`) mapping directly to the student's verified academic and portfolio records.
+     - Student dossiers, projects, certifications, and academic summaries edited via the admin portal or student app synchronize seamlessly for instant resume compilation.
+  2. **Direct Intent PDF Launching Without Cloud Uploads:**
+     - Resolved Android Expo Go scoped sandbox issue (`Not allowed to read file under given URL`) by generating Base64 vector PDFs and persisting directly into `FileSystem.documentDirectory`.
+     - Direct `android.intent.action.VIEW` integration launches Google Drive PDF Viewer (`com.google.android.apps.docs.viewer.PdfViewerActivity`) and system PDF readers directly on screen with **zero cloud upload prompts**.
+  3. **Zero-Overflow Layout Polish & Theme Alignment:**
+     - Structured education and degree headers with dedicated score pill badges (`[ Cumulative CGPA: 8.5 / 10.0 ]`, `[ Aggregate: 88% ]`) with `overflow: 'hidden'`, preventing text clipping on mobile displays.
+     - Streamlined the Review screen by removing redundant floating bottom CTAs and aligning the top-right `Export PDF` action with the institutional crimson theme (`#A31321`).
 - **2026-10-07 (Role Isolation, Auto-Repair Sanitization & Dual-Portal Account Strictness):**
   1. **Sidebar Locked Modules Exclusion (Image 1 fix):** Updated `src/components/Sidebar.jsx` so when logged in as a Corporate Recruiter (`COMPANY` role), locked operational modules (`Onboarding Approvals`, `Student Management`, `Drive Management`, `Training Management`, `Internship Monitoring`, `Report Generation`) are completely excluded from the DOM. Only **Company Management** and **Placement Statistics** are rendered under "Core Modules".
   2. **Top-Right Profile Menu Account Switching Isolation (Image 2 fix):** Updated `src/components/profile/ProfileMenu.jsx` to enforce strict isolation using `isAdminAccount` and `isCompanyAccount`. Company logins only ever see other corporate company accounts; institutional admin logins only ever see other institutional admin accounts.
@@ -1005,6 +1016,9 @@ NEXT_PUBLIC_SUPABASE_KEY=<anon-key>
      - `/company/auth` → `src/app/company/auth/page.jsx` — Standalone company auth screen, redirects to `/company` after authentication.
      - `/admin/auth` → Existing admin auth page.
   9. **AuthGuard Enhancement (`AuthGuard.jsx`):** Updated to accept `initialPortalType` prop, forwarding it to `AuthScreen` so `/company` routes default to the Company Portal tab.
+- **2026-10-10 (CVForge Resume Review Tab Fidelity & Profile Photo Synchronization):**
+  1. **Resume Review Tab Alignment:** Upgraded both `richard_sanchez` (Executive Slate Split) and `herman_walton` (Corporate Analyst Classic) in the mobile app's Review tab (`ResumeScreen.jsx`) so they mirror the exact design tokens, divider lines, icons, and timeline structures of the Preview tab.
+  2. **Profile Avatar Fix:** Restored missing student avatar in Herman Walton Review tab via `waltonPhotoBox` (56x68) and `waltonPhotoImg`. Added safe fallback handling in both `ResumeScreen.jsx` and `resumeService.js` PDF generator.
 - **2026-09-30 (Admin-Managed Student Dossier & Strict Manual Academic Control):**
   1. **Database Schema & RLS:** Added migration `supabase/migrations/20260930_admin_student_dossier.sql` creating 9 tables: `public.student_profiles`, `public.student_projects`, `public.student_git_projects`, `public.student_certificates`, `public.student_internships`, `public.student_academic_summary`, `public.student_semester_records`, `public.student_grades`, and `public.admin_audit_log`. Implemented `public.is_admin()` and `public.current_student_id()` helper functions. RLS ensures full admin CRUD and read-only student access to their own records where `is_visible = true`, with ZERO student write paths. Private bucket `student-certificates` created with signed URL access protocol.
   2. **Strict Manual-Only Academic Governance:** Enforced institutional policy where CGPA (0.00 – 10.00), overall attendance % (0.00 – 100.00), backlogs, semester SGPA, and subject grades are written strictly and exclusively by administrators. Completely eliminated all auto-derivation, triggers, cron jobs, and edge functions. Unset values display as "—" (never fake 0 or 8.65). Changes to grades do not recalculate CGPA. Confirmation modal displaying Old vs New comparison diff is mandatory before saving academic records. Every mutation is logged in `admin_audit_log`.
