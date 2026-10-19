@@ -6,6 +6,7 @@
 
 import { hashPassword } from './auth.js';
 import { DEFAULT_CAMPUS_BANNER } from '../constants/tokens.js';
+import { validateInternshipOpportunity } from './internshipValidation.js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://pwghazyfxhypzkadqfnn.supabase.co';
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'sb_publishable_i_u2xeBeomYmIqQ2XhD66Q_jD0bb4XN';
@@ -1117,20 +1118,31 @@ export async function getStudentDossier(idOrRoll) {
     avatar_url: student.avatar_url || student.avatar || null,
     banner_url: student.banner_url || DEFAULT_CAMPUS_BANNER,
     location: 'RIMT University, Mandi Gobindgarh, Punjab, India',
-    cgpa: realCgpa,
+    cgpa: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id)?.cgpa != null ? Number((global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id).cgpa) : realCgpa,
     academic_score: percentage,
+    academic_summary: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id) || {},
+    grades: (global.__RIMT_DB_GRADES || []).filter((g) => g.student_id === student.id),
     semester_scores: semesterScores,
     current_semester: student.current_semester || null,
     total_credits: student.total_credits || null,
-    attendance_rate: realAttendance,
+    attendance_rate: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id)?.overall_attendance != null ? Number((global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id).overall_attendance) : realAttendance,
+    overall_attendance: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id)?.overall_attendance != null ? Number((global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id).overall_attendance) : realAttendance,
     academic_standing: realStanding,
-    active_backlogs: student.active_backlogs ?? 0,
+    active_backlogs: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id)?.backlogs != null ? Number((global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id).backlogs) : (student.active_backlogs ?? 0),
+    backlogs: (global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id)?.backlogs != null ? Number((global.__RIMT_DB_ACADEMIC_SUMMARY || []).find((a) => a.student_id === student.id).backlogs) : (student.active_backlogs ?? 0),
     faculty_advisor: student.faculty_advisor || student.spoc || null,
     admin_notes: student.admin_notes || null,
-    projects: realProjects,
+    projects: (global.__RIMT_DB_PROJECTS || []).filter((p) => p.student_id === student.id).length > 0
+      ? (global.__RIMT_DB_PROJECTS || []).filter((p) => p.student_id === student.id)
+      : realProjects,
+    git_projects: (global.__RIMT_DB_GIT_PROJECTS || []).filter((g) => g.student_id === student.id),
     documents: documents,
-    certificates: documents,
-    internships: realInternships,
+    certificates: (global.__RIMT_DB_CERTIFICATES || []).filter((c) => c.student_id === student.id).length > 0
+      ? (global.__RIMT_DB_CERTIFICATES || []).filter((c) => c.student_id === student.id)
+      : documents,
+    internships: (global.__RIMT_DB_INTERNSHIPS || []).filter((i) => i.student_id === student.id).length > 0
+      ? (global.__RIMT_DB_INTERNSHIPS || []).filter((i) => i.student_id === student.id)
+      : realInternships,
     skills: realSkills,
     spoc: student.faculty_advisor || student.spoc || null,
   };
@@ -1504,12 +1516,759 @@ export async function updateAdmin(id, updates) {
 }
 
 /**
+ * ====================================================================
+ * TAMPER-EVIDENT ADMIN AUDIT LOG
+ * ====================================================================
+ */
+
+export async function recordAuditLog({ actorId, studentId, tableName, recordId, action, oldData, newData }) {
+  const entry = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    actor_id: actorId || null,
+    student_id: studentId || null,
+    table_name: tableName,
+    record_id: recordId ? String(recordId) : null,
+    action, // 'insert' | 'update' | 'delete'
+    old_data: oldData ? JSON.parse(JSON.stringify(oldData)) : null,
+    new_data: newData ? JSON.parse(JSON.stringify(newData)) : null,
+    created_at: new Date().toISOString(),
+  };
+
+  if (!global.__RIMT_DB_AUDIT_LOG) global.__RIMT_DB_AUDIT_LOG = [];
+  global.__RIMT_DB_AUDIT_LOG.unshift(entry);
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/admin_audit_log`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify({
+            actor_id: entry.actor_id,
+            actor_name: 'Administrator',
+            target_entity: entry.table_name,
+            target_id: entry.record_id,
+            action: entry.action,
+            old_values: entry.old_data,
+            new_values: entry.new_data,
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase recordAuditLog error:', e.message);
+    }
+  }
+
+  return entry;
+}
+
+export async function getAdminAuditLog(filterOrStudentId) {
+  if (!global.__RIMT_DB_AUDIT_LOG) global.__RIMT_DB_AUDIT_LOG = [];
+  let inMem = global.__RIMT_DB_AUDIT_LOG;
+
+  if (typeof filterOrStudentId === 'string') {
+    inMem = inMem.filter((l) => l.student_id === filterOrStudentId);
+  } else if (filterOrStudentId && typeof filterOrStudentId === 'object') {
+    if (filterOrStudentId.studentId) {
+      inMem = inMem.filter((l) => l.student_id === filterOrStudentId.studentId);
+    }
+    if (filterOrStudentId.tableName) {
+      inMem = inMem.filter((l) => l.table_name === filterOrStudentId.tableName);
+    }
+    if (typeof filterOrStudentId.limit === 'number') {
+      inMem = inMem.slice(0, filterOrStudentId.limit);
+    }
+  }
+
+  return inMem;
+}
+
+
+/**
+ * ====================================================================
+ * STRICT MANUAL-ONLY ACADEMIC HELPERS
+ * ====================================================================
+ */
+
+export async function upsertAcademicSummary(studentId, { cgpa, overall_attendance, backlogs }, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  let cleanCgpa = null;
+  if (cgpa !== undefined && cgpa !== null && cgpa !== '') {
+    const num = Number(cgpa);
+    if (isNaN(num) || num < 0 || num > 10) {
+      throw new Error('CGPA must be a number between 0.00 and 10.00');
+    }
+    cleanCgpa = Number(num.toFixed(2));
+  }
+
+  let cleanAttendance = null;
+  if (overall_attendance !== undefined && overall_attendance !== null && overall_attendance !== '') {
+    const num = Number(overall_attendance);
+    if (isNaN(num) || num < 0 || num > 100) {
+      throw new Error('Attendance percentage must be between 0.00 and 100.00');
+    }
+    cleanAttendance = Number(num.toFixed(2));
+  }
+
+  let cleanBacklogs = null;
+  if (backlogs !== undefined && backlogs !== null && backlogs !== '') {
+    const num = parseInt(backlogs, 10);
+    if (isNaN(num) || num < 0) {
+      throw new Error('Backlogs must be a non-negative integer');
+    }
+    cleanBacklogs = num;
+  }
+
+  if (!global.__RIMT_DB_ACADEMIC_SUMMARY) global.__RIMT_DB_ACADEMIC_SUMMARY = [];
+  const existingIdx = global.__RIMT_DB_ACADEMIC_SUMMARY.findIndex((a) => a.student_id === validStudentId);
+  const oldData = existingIdx >= 0 ? { ...global.__RIMT_DB_ACADEMIC_SUMMARY[existingIdx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    student_id: validStudentId,
+    cgpa: cleanCgpa,
+    overall_attendance: cleanAttendance,
+    backlogs: cleanBacklogs,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (existingIdx >= 0) {
+    global.__RIMT_DB_ACADEMIC_SUMMARY[existingIdx] = record;
+  } else {
+    global.__RIMT_DB_ACADEMIC_SUMMARY.push(record);
+  }
+
+  student.cgpa = cleanCgpa;
+  student.academic_score = cleanCgpa != null ? Number((cleanCgpa * 9.5).toFixed(1)) : null;
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_academic_summary',
+    recordId: validStudentId,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+export async function upsertSemesterRecord(studentId, semesterNum, { sgpa, attendance_pct, remarks, academic_year }, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  const sem = parseInt(semesterNum, 10);
+  if (isNaN(sem) || sem < 1 || sem > 12) {
+    throw new Error('Semester must be an integer between 1 and 12');
+  }
+
+  let cleanSgpa = null;
+  if (sgpa !== undefined && sgpa !== null && sgpa !== '') {
+    const num = Number(sgpa);
+    if (isNaN(num) || num < 0 || num > 10) {
+      throw new Error('SGPA must be between 0.00 and 10.00');
+    }
+    cleanSgpa = Number(num.toFixed(2));
+  }
+
+  let cleanAttendance = null;
+  if (attendance_pct !== undefined && attendance_pct !== null && attendance_pct !== '') {
+    const num = Number(attendance_pct);
+    if (isNaN(num) || num < 0 || num > 100) {
+      throw new Error('Attendance percentage must be between 0.00 and 100.00');
+    }
+    cleanAttendance = Number(num.toFixed(2));
+  }
+
+  if (!global.__RIMT_DB_SEMESTER_RECORDS) global.__RIMT_DB_SEMESTER_RECORDS = [];
+  const existingIdx = global.__RIMT_DB_SEMESTER_RECORDS.findIndex(
+    (s) => s.student_id === validStudentId && s.semester === sem
+  );
+  const oldData = existingIdx >= 0 ? { ...global.__RIMT_DB_SEMESTER_RECORDS[existingIdx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    id: oldData?.id || (crypto.randomUUID ? crypto.randomUUID() : `sem-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    semester: sem,
+    sgpa: cleanSgpa,
+    attendance_percentage: cleanAttendance,
+    remarks: remarks || null,
+    academic_year: academic_year || null,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (existingIdx >= 0) {
+    global.__RIMT_DB_SEMESTER_RECORDS[existingIdx] = record;
+  } else {
+    global.__RIMT_DB_SEMESTER_RECORDS.push(record);
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_semester_records',
+    recordId: `${validStudentId}-sem-${sem}`,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+export async function upsertGrades(studentId, semesterNum, rows, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  const sem = parseInt(semesterNum, 10);
+  if (isNaN(sem) || sem < 1 || sem > 12) {
+    throw new Error('Semester must be an integer between 1 and 12');
+  }
+
+  if (!Array.isArray(rows)) {
+    throw new Error('Rows must be an array of course grade entries');
+  }
+
+  if (!global.__RIMT_DB_GRADES) global.__RIMT_DB_GRADES = [];
+  const oldRows = global.__RIMT_DB_GRADES.filter(
+    (g) => g.student_id === validStudentId && g.semester === sem
+  );
+
+  global.__RIMT_DB_GRADES = global.__RIMT_DB_GRADES.filter(
+    (g) => !(g.student_id === validStudentId && g.semester === sem)
+  );
+
+  const now = new Date().toISOString();
+  const cleanRows = rows.map((r, i) => ({
+    id: r.id || `grade-${validStudentId}-${sem}-${i}-${Date.now()}`,
+    student_id: validStudentId,
+    semester: sem,
+    subject_code: String(r.subject_code || `SUB${i + 1}`).trim(),
+    subject_name: String(r.subject_name || 'Subject Course').trim(),
+    credits: r.credits != null && r.credits !== '' ? Number(r.credits) : null,
+    grade: String(r.grade || 'P').trim(),
+    grade_points: r.grade_points != null && r.grade_points !== '' ? Number(r.grade_points) : null,
+    updated_by: actorId || null,
+    updated_at: now,
+  }));
+
+  global.__RIMT_DB_GRADES.push(...cleanRows);
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_grades',
+    recordId: `${validStudentId}-sem-${sem}`,
+    action: 'update',
+    oldData: oldRows,
+    newData: cleanRows,
+  });
+
+  return cleanRows;
+}
+
+export async function upsertStudentProfile(studentId, profileData, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_PROFILES) global.__RIMT_DB_PROFILES = [];
+  const idx = global.__RIMT_DB_PROFILES.findIndex((p) => p.student_id === validStudentId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_PROFILES[idx] } : null;
+
+  const now = new Date().toISOString();
+  const record = {
+    student_id: validStudentId,
+    bio: profileData.bio !== undefined ? profileData.bio : (oldData?.bio || student.bio || null),
+    headline: profileData.headline !== undefined ? profileData.headline : (oldData?.headline || student.headline || null),
+    skills: profileData.skills !== undefined ? (Array.isArray(profileData.skills) ? profileData.skills : []) : (oldData?.skills || student.skills || []),
+    linkedin_url: profileData.linkedin_url !== undefined ? profileData.linkedin_url : (oldData?.linkedin_url || null),
+    github_url: profileData.github_url !== undefined ? profileData.github_url : (oldData?.github_url || null),
+    portfolio_url: profileData.portfolio_url !== undefined ? profileData.portfolio_url : (oldData?.portfolio_url || null),
+    resume_url: profileData.resume_url !== undefined ? profileData.resume_url : (oldData?.resume_url || null),
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_PROFILES[idx] = record;
+  } else {
+    global.__RIMT_DB_PROFILES.push(record);
+  }
+
+  if (profileData.bio !== undefined) student.bio = profileData.bio;
+  if (profileData.headline !== undefined) student.headline = profileData.headline;
+  if (profileData.skills !== undefined) student.skills = profileData.skills;
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_profiles',
+    recordId: validStudentId,
+    action: oldData ? 'update' : 'insert',
+    oldData,
+    newData: record,
+  });
+
+  return record;
+}
+
+/**
+ * ====================================================================
+ * SECTION CRUD: PROJECTS, GIT, CERTIFICATES, INTERNSHIPS
+ * ====================================================================
+ */
+
+export async function createStudentProject(studentId, data, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const count = global.__RIMT_DB_PROJECTS.filter((p) => p.student_id === validStudentId).length;
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `prj-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    title: String(data.title || 'Untitled Project').trim(),
+    description: data.description ? String(data.description).trim() : null,
+    tech_stack: Array.isArray(data.tech_stack) ? data.tech_stack : (data.tech_stack ? String(data.tech_stack).split(',').map((s) => s.trim()) : []),
+    live_url: data.live_url ? String(data.live_url).trim() : null,
+    start_date: data.start_date || null,
+    end_date: data.end_date || null,
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    sort_order: count,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_PROJECTS.push(item);
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_projects',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentProject(projectId, data, actorId) {
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const idx = global.__RIMT_DB_PROJECTS.findIndex((p) => p.id === projectId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_PROJECTS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: projectId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_PROJECTS[idx] = updated;
+  } else {
+    global.__RIMT_DB_PROJECTS.push(updated);
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_projects',
+    recordId: projectId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentProject(projectId, studentId, actorId) {
+  if (!global.__RIMT_DB_PROJECTS) global.__RIMT_DB_PROJECTS = [];
+  const idx = global.__RIMT_DB_PROJECTS.findIndex((p) => p.id === projectId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_PROJECTS[idx] : null;
+
+  global.__RIMT_DB_PROJECTS = global.__RIMT_DB_PROJECTS.filter((p) => p.id !== projectId);
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_projects',
+    recordId: projectId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+export async function reorderStudentProjects(studentId, orderedIds, actorId) {
+  if (!Array.isArray(orderedIds) || !global.__RIMT_DB_PROJECTS) return;
+  orderedIds.forEach((id, sortOrder) => {
+    const item = global.__RIMT_DB_PROJECTS.find((p) => p.id === id);
+    if (item) {
+      item.sort_order = sortOrder;
+      item.updated_at = new Date().toISOString();
+    }
+  });
+  return true;
+}
+
+export async function createStudentGitProject(studentId, data, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const count = global.__RIMT_DB_GIT_PROJECTS.filter((p) => p.student_id === validStudentId).length;
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `git-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    repo_name: String(data.repo_name || 'repository').trim(),
+    repo_url: String(data.repo_url || '').trim(),
+    description: data.description ? String(data.description).trim() : null,
+    primary_language: data.primary_language ? String(data.primary_language).trim() : null,
+    stars: data.stars != null ? Number(data.stars) : 0,
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    sort_order: count,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_GIT_PROJECTS.push(item);
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_git_projects',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentGitProject(gitProjectId, data, actorId) {
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const idx = global.__RIMT_DB_GIT_PROJECTS.findIndex((p) => p.id === gitProjectId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_GIT_PROJECTS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: gitProjectId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_GIT_PROJECTS[idx] = updated;
+  } else {
+    global.__RIMT_DB_GIT_PROJECTS.push(updated);
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_git_projects',
+    recordId: gitProjectId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentGitProject(gitProjectId, studentId, actorId) {
+  if (!global.__RIMT_DB_GIT_PROJECTS) global.__RIMT_DB_GIT_PROJECTS = [];
+  const idx = global.__RIMT_DB_GIT_PROJECTS.findIndex((p) => p.id === gitProjectId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_GIT_PROJECTS[idx] : null;
+
+  global.__RIMT_DB_GIT_PROJECTS = global.__RIMT_DB_GIT_PROJECTS.filter((p) => p.id !== gitProjectId);
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_git_projects',
+    recordId: gitProjectId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+export async function createStudentCertificate(studentId, data, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `cert-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    project_id: data.project_id || null,
+    title: String(data.title || 'Official Certificate').trim(),
+    issuer: data.issuer ? String(data.issuer).trim() : null,
+    issue_date: data.issue_date || null,
+    credential_id: data.credential_id ? String(data.credential_id).trim() : null,
+    credential_url: data.credential_url ? String(data.credential_url).trim() : null,
+    file_path: data.file_path || null,
+    file_mime: data.file_mime || 'application/pdf',
+    is_visible: data.is_visible !== undefined ? Boolean(data.is_visible) : true,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_CERTIFICATES.push(item);
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_certificates',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentCertificate(certId, data, actorId) {
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+  const idx = global.__RIMT_DB_CERTIFICATES.findIndex((c) => c.id === certId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_CERTIFICATES[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: certId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_CERTIFICATES[idx] = updated;
+  } else {
+    global.__RIMT_DB_CERTIFICATES.push(updated);
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_certificates',
+    recordId: certId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentCertificate(certId, studentId, actorId) {
+  if (!global.__RIMT_DB_CERTIFICATES) global.__RIMT_DB_CERTIFICATES = [];
+  const idx = global.__RIMT_DB_CERTIFICATES.findIndex((c) => c.id === certId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_CERTIFICATES[idx] : null;
+
+  global.__RIMT_DB_CERTIFICATES = global.__RIMT_DB_CERTIFICATES.filter((c) => c.id !== certId);
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_certificates',
+    recordId: certId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+export async function createStudentInternship(studentId, data, actorId) {
+  await initDb();
+  const student = (await getUserById(studentId)) || (await getUserByRollNo(studentId));
+  if (!student) throw new Error('Student not found');
+  const validStudentId = student.id;
+
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+
+  const now = new Date().toISOString();
+  const item = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : `intern-${Date.now()}-${Math.floor(Math.random() * 1000)}`),
+    student_id: validStudentId,
+    company_name: String(data.company_name || 'Organization').trim(),
+    role_title: String(data.role_title || data.role || 'Intern').trim(),
+    location: data.location ? String(data.location).trim() : null,
+    mode: ['onsite', 'remote', 'hybrid'].includes(data.mode) ? data.mode : 'onsite',
+    start_date: data.start_date || null,
+    end_date: data.end_date || null,
+    is_ongoing: Boolean(data.is_ongoing),
+    stipend: data.stipend != null && data.stipend !== '' ? Number(data.stipend) : null,
+    description: data.description ? String(data.description).trim() : null,
+    offer_letter_path: data.offer_letter_path || null,
+    completion_certificate_path: data.completion_certificate_path || null,
+    status: ['ongoing', 'completed', 'terminated'].includes(data.status) ? data.status : 'ongoing',
+    opportunity_id: data.opportunity_id || null,
+    duration_months: data.duration_months ? Number(data.duration_months) : null,
+    season: data.season || null,
+    compensation_type: data.compensation_type || null,
+    fee_amount: data.fee_amount != null && data.fee_amount !== '' ? Number(data.fee_amount) : null,
+    created_by: actorId || null,
+    updated_by: actorId || null,
+    created_at: now,
+    updated_at: now,
+  };
+
+  global.__RIMT_DB_INTERNSHIPS.push(item);
+
+  await recordAuditLog({
+    actorId,
+    studentId: validStudentId,
+    tableName: 'student_internships',
+    recordId: item.id,
+    action: 'insert',
+    oldData: null,
+    newData: item,
+  });
+
+  return item;
+}
+
+export async function updateStudentInternship(internshipId, data, actorId) {
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+  const idx = global.__RIMT_DB_INTERNSHIPS.findIndex((i) => i.id === internshipId);
+  const oldData = idx >= 0 ? { ...global.__RIMT_DB_INTERNSHIPS[idx] } : null;
+
+  const now = new Date().toISOString();
+  const updated = {
+    ...(oldData || {}),
+    ...data,
+    id: internshipId,
+    updated_by: actorId || null,
+    updated_at: now,
+  };
+
+  if (idx >= 0) {
+    global.__RIMT_DB_INTERNSHIPS[idx] = updated;
+  } else {
+    global.__RIMT_DB_INTERNSHIPS.push(updated);
+  }
+
+  await recordAuditLog({
+    actorId,
+    studentId: updated.student_id,
+    tableName: 'student_internships',
+    recordId: internshipId,
+    action: 'update',
+    oldData,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteStudentInternship(internshipId, studentId, actorId) {
+  if (!global.__RIMT_DB_INTERNSHIPS) global.__RIMT_DB_INTERNSHIPS = [];
+  const idx = global.__RIMT_DB_INTERNSHIPS.findIndex((i) => i.id === internshipId);
+  const oldData = idx >= 0 ? global.__RIMT_DB_INTERNSHIPS[idx] : null;
+
+  global.__RIMT_DB_INTERNSHIPS = global.__RIMT_DB_INTERNSHIPS.filter((i) => i.id !== internshipId);
+
+  await recordAuditLog({
+    actorId,
+    studentId: studentId || oldData?.student_id,
+    tableName: 'student_internships',
+    recordId: internshipId,
+    action: 'delete',
+    oldData,
+    newData: null,
+  });
+
+  return true;
+}
+
+/**
  * Retrieve all student internships aggregated across approved students.
+ * Always returns live data or [] if none exist. Never returns fake mock data.
  */
 export async function getAllStudentInternships() {
-  const allStudents = await getRequests({ status: 'APPROVED' });
   const internships = [];
+  const seenIds = new Set();
 
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/student_internships?select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows)) {
+          for (const row of rows) {
+            seenIds.add(row.id);
+            internships.push(row);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getAllStudentInternships error:', e.message);
+    }
+  }
+
+  if (global.__RIMT_DB_INTERNSHIPS && Array.isArray(global.__RIMT_DB_INTERNSHIPS)) {
+    for (const intern of global.__RIMT_DB_INTERNSHIPS) {
+      if (!seenIds.has(intern.id)) {
+        seenIds.add(intern.id);
+        internships.push({ ...intern });
+      }
+    }
+  }
+
+  const allStudents = await getRequests({ status: 'APPROVED' });
   for (const student of allStudents) {
     let studentInternships = [];
     if (Array.isArray(student.internships)) {
@@ -1518,34 +2277,363 @@ export async function getAllStudentInternships() {
       try {
         const parsed = JSON.parse(student.internships);
         if (Array.isArray(parsed)) studentInternships = parsed;
-      } catch { /* ignore */ }
+      } catch {}
     }
     if (student.admin_notes) {
       try {
         const parsedNotes = JSON.parse(student.admin_notes);
         if (Array.isArray(parsedNotes?.internships)) {
-          const seenIds = new Set(studentInternships.map((i) => i.id));
-          parsedNotes.internships.forEach((i) => {
-            if (!seenIds.has(i.id)) {
-              seenIds.add(i.id);
-              studentInternships.push(i);
-            }
-          });
+          studentInternships = [...studentInternships, ...parsedNotes.internships];
         }
-      } catch { /* ignore */ }
+      } catch {}
     }
-    studentInternships.forEach((intern) => {
-      internships.push({
-        ...intern,
-        student_id: student.id,
-        student_name: student.full_name || student.name || '',
-        student_roll: student.roll_number || student.roll_no || '',
-        student_department: student.department || student.course || '',
-      });
-    });
+
+    for (const intern of studentInternships) {
+      if (!seenIds.has(intern.id)) {
+        seenIds.add(intern.id);
+        internships.push({
+          ...intern,
+          student_id: student.id,
+          student_name: student.full_name || student.name || '',
+          student_roll: student.roll_number || student.roll_no || '',
+          student_department: student.department || student.course || '',
+        });
+      }
+    }
+  }
+
+  for (const intern of internships) {
+    if (intern.student_id && (!intern.student_name || !intern.student_roll)) {
+      const s = allStudents.find((st) => st.id === intern.student_id);
+      if (s) {
+        intern.student_name = intern.student_name || s.full_name || s.name || '';
+        intern.student_roll = intern.student_roll || s.roll_number || s.roll_no || '';
+        intern.student_department = intern.student_department || s.department || s.course || '';
+      }
+    }
   }
 
   return internships;
+}
+
+/**
+ * ====================================================================
+ * INTERNSHIP OPPORTUNITIES (Module 06 Core)
+ * In-memory fallback starts strictly EMPTY.
+ * ====================================================================
+ */
+
+if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+  global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+}
+
+export async function getInternshipOpportunities(filters = {}) {
+  let list = [];
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/internship_opportunities?select=*`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows)) {
+          list = rows;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getInternshipOpportunities error:', e.message);
+    }
+  }
+
+  if (!list || list.length === 0) {
+    if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+      global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+    }
+    list = [...global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES];
+  }
+
+  let result = list;
+
+  if (filters.q) {
+    const q = filters.q.toLowerCase().trim();
+    result = result.filter((item) => {
+      const titleMatch = (item.title || '').toLowerCase().includes(q);
+      const companyMatch = (item.company_name || '').toLowerCase().includes(q);
+      const skillMatch = Array.isArray(item.required_skills) &&
+        item.required_skills.some((s) => s.toLowerCase().includes(q));
+      return titleMatch || companyMatch || skillMatch;
+    });
+  }
+
+  if (filters.skills) {
+    const filterSkills = (Array.isArray(filters.skills) ? filters.skills : String(filters.skills).split(','))
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (filterSkills.length > 0) {
+      result = result.filter((item) => {
+        const itemSkills = (item.required_skills || []).map((s) => s.toLowerCase());
+        return filterSkills.some((fs) => itemSkills.includes(fs));
+      });
+    }
+  }
+
+  if (filters.duration) {
+    const dur = Number(filters.duration);
+    if (!isNaN(dur) && dur > 0) {
+      result = result.filter((item) => Number(item.duration_months) === dur);
+    }
+  }
+
+  if (filters.season && filters.season !== 'all') {
+    const s = filters.season.toLowerCase().trim();
+    result = result.filter((item) => (item.season || '').toLowerCase() === s);
+  }
+
+  if (filters.compensation && filters.compensation !== 'all') {
+    const c = filters.compensation.toLowerCase().trim();
+    result = result.filter((item) => (item.compensation_type || '').toLowerCase() === c);
+  }
+
+  if (filters.company && filters.company !== 'all') {
+    const comp = filters.company.toLowerCase().trim();
+    result = result.filter((item) =>
+      (item.company_id || '').toLowerCase() === comp ||
+      (item.company_name || '').toLowerCase() === comp
+    );
+  }
+
+  if (filters.status && filters.status !== 'all') {
+    const st = filters.status.toLowerCase().trim();
+    result = result.filter((item) => (item.status || '').toLowerCase() === st);
+  }
+
+  if (filters.department && filters.department !== 'all') {
+    const dept = filters.department.trim();
+    result = result.filter((item) => {
+      if (!item.eligible_departments || item.eligible_departments.length === 0) return true;
+      return item.eligible_departments.includes(dept);
+    });
+  }
+
+  const sort = filters.sort || 'newest';
+  result.sort((a, b) => {
+    if (sort === 'deadline') {
+      if (!a.application_deadline) return 1;
+      if (!b.application_deadline) return -1;
+      return new Date(a.application_deadline) - new Date(b.application_deadline);
+    }
+    if (sort === 'duration') {
+      return (Number(a.duration_months) || 0) - (Number(b.duration_months) || 0);
+    }
+    if (sort === 'stipend') {
+      return (Number(b.stipend_amount) || 0) - (Number(a.stipend_amount) || 0);
+    }
+    if (sort === 'company') {
+      return (a.company_name || '').localeCompare(b.company_name || '');
+    }
+    return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+  });
+
+  return result;
+}
+
+export async function getInternshipOpportunityById(id) {
+  if (!id) return null;
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/internship_opportunities?id=eq.${encodeURIComponent(id)}&select=*`,
+        {
+          headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        }
+      );
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows[0]) {
+          return rows[0];
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getInternshipOpportunityById error:', e.message);
+    }
+  }
+
+  if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+  }
+  const found = global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES.find((o) => o.id === id);
+  return found ? { ...found } : null;
+}
+
+export async function createInternshipOpportunity(data, actor = null) {
+  const validation = validateInternshipOpportunity(data);
+  if (!validation.valid) {
+    const err = new Error('Validation failed');
+    err.errors = validation.errors;
+    err.status = 400;
+    throw err;
+  }
+
+  const id = crypto.randomUUID ? crypto.randomUUID() : `opp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const now = new Date().toISOString();
+  const actorName = actor?.full_name || actor?.name || 'Administrator';
+  const actorId = actor?.id || actor?.adminId || null;
+
+  const opportunity = {
+    id,
+    ...validation.sanitized,
+    created_by: actorName,
+    created_at: now,
+    updated_at: now,
+  };
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/internship_opportunities`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(opportunity),
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows[0]) {
+            Object.assign(opportunity, rows[0]);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase createInternshipOpportunity error:', e.message);
+    }
+  }
+
+  if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+  }
+  global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES.unshift(opportunity);
+
+  await recordAuditLog({
+    actorId,
+    tableName: 'internship_opportunities',
+    recordId: opportunity.id,
+    action: 'insert',
+    oldData: null,
+    newData: opportunity,
+  });
+
+  return opportunity;
+}
+
+export async function updateInternshipOpportunity(id, data, actor = null) {
+  if (!id) throw new Error('Opportunity ID is required');
+  const existing = await getInternshipOpportunityById(id);
+  if (!existing) {
+    const err = new Error('Internship opportunity not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const merged = { ...existing, ...data };
+  const validation = validateInternshipOpportunity(merged, { isPartial: false });
+  if (!validation.valid) {
+    const err = new Error('Validation failed');
+    err.errors = validation.errors;
+    err.status = 400;
+    throw err;
+  }
+
+  const now = new Date().toISOString();
+  const actorId = actor?.id || actor?.adminId || null;
+
+  const updated = {
+    ...existing,
+    ...validation.sanitized,
+    id: existing.id,
+    updated_at: now,
+  };
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/internship_opportunities?id=eq.${encodeURIComponent(id)}`, {
+          method: 'PATCH',
+          headers: writeHeaders,
+          body: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase updateInternshipOpportunity error:', e.message);
+    }
+  }
+
+  if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+  }
+  const idx = global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES.findIndex((o) => o.id === id);
+  if (idx >= 0) {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES[idx] = updated;
+  } else {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES.unshift(updated);
+  }
+
+  await recordAuditLog({
+    actorId,
+    tableName: 'internship_opportunities',
+    recordId: id,
+    action: 'update',
+    oldData: existing,
+    newData: updated,
+  });
+
+  return updated;
+}
+
+export async function deleteInternshipOpportunity(id, actor = null) {
+  if (!id) throw new Error('Opportunity ID is required');
+  const existing = await getInternshipOpportunityById(id);
+  if (!existing) {
+    const err = new Error('Internship opportunity not found');
+    err.status = 404;
+    throw err;
+  }
+
+  const actorId = actor?.id || actor?.adminId || null;
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        await fetch(`${SUPABASE_URL}/rest/v1/internship_opportunities?id=eq.${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: writeHeaders,
+        });
+      }
+    } catch (e) {
+      console.warn('Supabase deleteInternshipOpportunity error:', e.message);
+    }
+  }
+
+  if (!global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES) {
+    global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = [];
+  }
+  global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES = global.__RIMT_DB_INTERNSHIP_OPPORTUNITIES.filter(
+    (o) => o.id !== id
+  );
+
+  await recordAuditLog({
+    actorId,
+    tableName: 'internship_opportunities',
+    recordId: id,
+    action: 'delete',
+    oldData: existing,
+    newData: null,
+  });
+
+  return true;
 }
 
 /**

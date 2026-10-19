@@ -337,72 +337,7 @@ export const TRAININGS_DATA = [
   }
 ];
 
-export const INTERNSHIPS_DATA = [
-  {
-    id: 'int-1',
-    studentName: 'Harpreet Kaur',
-    roll: 'RIMT-21-CSE-084',
-    company: 'Amazon Web Services',
-    role: 'Cloud Engineering Intern',
-    stipend: '₹45,000 / month',
-    duration: '6 Months (Jan–Jun 2025)',
-    mentor: 'Dr. Monika Aggarwal (RIMT) & S. Nair (AWS)',
-    progress: 85,
-    status: 'Ongoing',
-    statusType: 'ongoing',
-    category: 'ongoing',
-    certificateVerified: true,
-    certificateHash: 'CERT-AWS-RIMT-2025-084'
-  },
-  {
-    id: 'int-2',
-    studentName: 'Aman Sharma',
-    roll: 'RIMT-21-CSE-012',
-    company: 'Samsung R&D Institute',
-    role: 'Machine Learning Research Intern',
-    stipend: '₹50,000 / month',
-    duration: '6 Months (Jan–Jun 2025)',
-    mentor: 'Prof. J. K. Singla & Dr. D. Kim (Samsung)',
-    progress: 90,
-    status: 'Ongoing',
-    statusType: 'ongoing',
-    category: 'ongoing',
-    certificateVerified: true,
-    certificateHash: 'CERT-SRI-RIMT-2025-012'
-  },
-  {
-    id: 'int-3',
-    studentName: 'Simranjeet Singh',
-    roll: 'RIMT-21-ME-045',
-    company: 'Larsen & Toubro Heavy Engg',
-    role: 'Industrial Automation Intern',
-    stipend: '₹28,000 / month',
-    duration: '6 Months (Jul–Dec 2024)',
-    mentor: 'Dr. Gurmeet Singh & Er. R. Patel (L&T)',
-    progress: 100,
-    status: 'Completed',
-    statusType: 'completed',
-    category: 'completed',
-    certificateVerified: true,
-    certificateHash: 'CERT-LT-RIMT-2024-045'
-  },
-  {
-    id: 'int-4',
-    studentName: 'Karanveer Dhillon',
-    roll: 'RIMT-21-CE-008',
-    company: 'Shapoorji Pallonji EPC',
-    role: 'Structural BIM Modelling Intern',
-    stipend: '₹22,000 / month',
-    duration: '4 Months (Aug–Nov 2024)',
-    mentor: 'Prof. H. S. Bawa',
-    progress: 55,
-    status: 'At Risk (Low Logins)',
-    statusType: 'at-risk',
-    category: 'at-risk',
-    certificateVerified: false,
-    certificateHash: 'Pending Verification'
-  }
-];
+export const INTERNSHIPS_DATA = [];
 
 export const REPORTS_DATA = [
   {

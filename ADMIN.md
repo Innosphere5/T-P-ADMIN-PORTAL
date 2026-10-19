@@ -1,9 +1,9 @@
 # 🛡️ ADMIN.md — RIMT University Institutional Placement & Operations Portal
 
 > **Single Source of Truth:** Master Memory, Architecture, Screens, Endpoints, and File Map for the entire RIMT Admin Portal & Integrated Student App.  
-> **Last Updated:** 2026-10-07  
+> **Last Updated:** 2026-10-18  
 > **Role:** Senior Full-Stack & System Logic Engineer Specification  
-> **Status:** Active; **Dual-Portal Auth (Admin + Company)** live, Role-Based Access Control enforced, Company Registration/Login/Google OAuth operational, Student Profession Badges live, Official SVG Company Logos live, Multi-Account Session Isolation active, Gmail-Style Account Chooser live, Talent Showcase live, Cloudinary upload signing endpoint operational  
+> **Status:** Active; **Dual-Portal Auth (Admin + Company)** live, Role-Based Access Control enforced, **Internship Opportunities & Live Monitoring Module Overhaul** live (zero dummy mock data, strict DB mutual exclusivity for compensation models, multi-filter search, role-gated admin CRUD, full-width responsive chips with hover zoom micro-interactions), Talent Showcase live, Cloudinary upload signing endpoint operational  
 
 ---
 
@@ -94,6 +94,10 @@ c:\Users\r3dha\ADMIN-PANEL-RIMT\
 │   │       │   │   └── check-email/route.js    # POST: Pre-check if Gmail address already exists
 │   │       │   ├── internships/
 │   │       │   │   └── route.js        # GET: List all student internships for InternshipMonitoring
+│   │       │   ├── internship-opportunities/  # ⭐ INTERNSHIP OPPORTUNITY CRUD & SEARCH ENDPOINTS
+│   │       │   │   ├── route.js        # GET: Multi-filter search; POST: Admin create opportunity (mutual exclusivity validation, audit log)
+│   │       │   │   └── [id]/
+│   │       │   │       └── route.js    # GET: Single record; PATCH: Update/toggle visibility; DELETE: Remove record
 │   │       │   └── requests/
 │   │       │       ├── route.js    # GET: Queued student applications (?status=PENDING)
 │   │       │       └── [id]/
@@ -117,7 +121,8 @@ c:\Users\r3dha\ADMIN-PANEL-RIMT\
 │   ├── lib/                      # Core Backend Utilities & Security Guards
 │   │   ├── auth.js               # Web Crypto PBKDF2 password hashing & HMAC-SHA256 JWT
 │   │   ├── authApi.js            # ⭐ Client-side API client for admin + company auth endpoints (companyRegister, companyLogin, companyGoogleLogin)
-│   │   ├── db.js                 # ⭐ Supabase adapter, student/admin/company records, dossier CRUD, company CRUD, and memory fallback
+│   │   ├── db.js                 # ⭐ Supabase adapter, student/admin/company records, dossier CRUD, company CRUD, internship opportunities CRUD, and memory fallback
+│   │   ├── internshipValidation.js # ⭐ Canonical validation engine (mutual exclusivity, duration bounds, season checks, skill normalization)
 │   │   ├── middleware.js         # ⭐ withAuth route guard enforcing admin, company & student role/status checks with getCompanyById lookup
 │   │   ├── placementStats.js     # Live placement statistics, student-company matching, profession badges, package benchmarks
 │   │   ├── schema.sql            # PostgreSQL schema definition with students and admins tables
@@ -136,6 +141,11 @@ c:\Users\r3dha\ADMIN-PANEL-RIMT\
 │   │   │   └── AuthGuard.jsx     # ⭐ Route protection wrapper with multi-account session isolation, company + admin session support, initialPortalType prop
 │   │   ├── common/
 │   │   │   └── CompanyBrandLogo.jsx  # ⭐ Self-contained SVG vector brand logos (Google, Microsoft, AWS, Deloitte, HDFC, TCS, L&T, Infosys, Wipro) — CORS-immune, responsive
+│   │   ├── internship/           # ⭐ INTERNSHIP MONITORING & OPPORTUNITY MODULE COMPONENTS (NEW)
+│   │   │   ├── OpportunityCard.jsx       # Card displaying opportunity details, stipend/paid badge, skills, status toggle, hover zoom
+│   │   │   ├── OpportunityFormModal.jsx  # Creation/editing modal with real-time validation, duration slider, stipend exclusivity
+│   │   │   ├── InternshipFilters.jsx     # Full-width horizontal filter toolbar (compensation, season, duration, skills, search, sort)
+│   │   │   └── StudentInternshipCard.jsx # Live student internship monitoring card with dossier inspection
 │   │   ├── placement/
 │   │   │   ├── PlacedStudentsCard.jsx   # ⭐ Placed students card with profession badges (getProfessionBadge), CompanyBrandLogo, tier-based styling
 │   │   │   └── HiringCompaniesSection.jsx # ⭐ Hiring companies section with official SVG logos & clickable Google Maps location links
@@ -155,7 +165,7 @@ c:\Users\r3dha\ADMIN-PANEL-RIMT\
 │   │   ├── DriveManagement.jsx   # Upcoming and active campus drives
 │   │   ├── PlacementStatistics.jsx # Real-time placement metrics, department charts, placed students card with profession badges, and hiring companies with official SVG logos
 │   │   ├── TrainingManagement.jsx # Pre-placement training schedule and rosters
-│   │   ├── InternshipMonitoring.jsx # Student industrial internship tracking
+│   │   ├── InternshipMonitoring.jsx # ⭐ OVERHAULED: Live dual-tab layout (Opportunities vs Live Student Internships), full CRUD modal, zero synthetic mock data, real-time KPI metrics, full-width responsive filters
 │   │   ├── ReportGeneration.jsx  # Exportable reports
 │   │   └── ProfileTab.jsx        # Admin profile information & security settings
 │   │
@@ -268,10 +278,34 @@ c:\Users\r3dha\ADMIN-PANEL-RIMT\
 - **Features:**
   - Training modules, schedule calendar, and student attendance tracking.
 
-### 4.7 Internship Monitoring (`src/views/InternshipMonitoring.jsx`)
-- **Purpose:** 6-month industrial internship tracking.
-- **Features:**
-  - Assigned mentor faculty, mid-term evaluations, and compliance reports.
+### 4.7 Internship Monitoring & Opportunities (`src/views/InternshipMonitoring.jsx`)
+- **Purpose:** Comprehensive institutional internship management featuring corporate opportunity curation, multi-filter discovery, role-gated admin authoring, and real-time student industrial internship monitoring.
+- **Architecture & Features:**
+  - **Dual-Tab Operational Interface:**
+    - **Internship Opportunities Tab:** Admin-managed catalog of corporate internship openings. Starts strictly clean at 0 (zero hardcoded mock rows). Real-time Supabase synchronization.
+    - **Live Student Internships Tab:** Live feed of assigned student industrial internships aggregated across verified student dossiers, with faculty mentor tracking and mid-term evaluation states.
+  - **Full-Width Responsive Filter Toolbar (`InternshipFilters.jsx`):**
+    - Search across roles, companies, required skills, and locations.
+    - Dropdowns for Company, Department, Opportunity Status, and Sort criteria.
+    - Full-width horizontal chip bar displaying **Compensation** (All Comp, Stipend, Non-Stipend, Paid), **Season** (All Seasons, Winter, Summer, Spring, Autumn), and **Duration** (All, 3 Mo, 6 Mo, 9 Mo, 12 Mo, Other) side-by-side with subtle dividers and smooth interactive hover-zoom scaling (`hover:scale-105 active:scale-95`).
+    - Dynamic skills filter chips derived from active opportunity requirements with local search filter and expandable toggle.
+    - Grid view vs List view layout toggle with local preferences.
+  - **Opportunity Cards (`OpportunityCard.jsx`):**
+    - Company monogram/logo, role title, department tags, duration, season badge, and compensation pill.
+    - Currency formatting in INR with Indian numeric grouping (e.g. ₹25,000 / month).
+    - Real-time visibility toggle (`is_visible`), Edit modal trigger, and delete confirmation dialog with audit logging.
+    - Micro-zoom hover animation (`hover:scale-[1.01] transition-all`).
+  - **Opportunity Creation & Editing Modal (`OpportunityFormModal.jsx`):**
+    - Live form validation via shared engine `internshipValidation.js`.
+    - Strict mutual exclusivity between Stipend (`stipend_amount > 0` and `fee_amount = null`) and Paid (`fee_amount > 0` and `stipend_amount = null`).
+    - Duration slider with standard semester presets (3, 6, 9, 12 months) and custom input bounds (1–24 months).
+    - Academic season picker, department multi-select, and interactive skill tagger with backspace removal.
+  - **Live Student Internship Cards (`StudentInternshipCard.jsx`):**
+    - Displays scholar identity, roll number, department, corporate host, stipend, status, and faculty mentor.
+    - Direct "Inspect Dossier" CTA opening the full LinkedIn-Style Scholar Dossier modal.
+  - **Security & Audit Governance:**
+    - Role-based route guard strictly blocks `COMPANY` role recruiters from admin write endpoints (`FORBIDDEN_ROLE`).
+    - All CRUD mutations are permanently recorded in `admin_audit_log` with actor ID and data diffs.
 
 ### 4.8 Report Generation (`src/views/ReportGeneration.jsx`)
 - **Purpose:** Institutional reporting for NAAC, NIRF, and AICTE compliance.
@@ -666,6 +700,38 @@ CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   user_agent TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
 );
+
+-- 10. Institutional Internship Opportunities (Overhaul Complete)
+CREATE TABLE IF NOT EXISTS public.internship_opportunities (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  company_logo_url TEXT,
+  duration_months INT NOT NULL CHECK (duration_months BETWEEN 1 AND 24),
+  season TEXT NOT NULL DEFAULT 'any' CHECK (season IN ('winter', 'summer', 'spring', 'autumn', 'any')),
+  compensation_type TEXT NOT NULL DEFAULT 'stipend' CHECK (compensation_type IN ('stipend', 'non_stipend', 'paid')),
+  stipend_amount NUMERIC(10,2),
+  fee_amount NUMERIC(10,2),
+  location TEXT,
+  work_mode TEXT NOT NULL DEFAULT 'on_site' CHECK (work_mode IN ('on_site', 'remote', 'hybrid')),
+  skills_required TEXT[] NOT NULL DEFAULT '{}',
+  department TEXT[] NOT NULL DEFAULT '{"BCA"}',
+  openings INT NOT NULL DEFAULT 1 CHECK (openings >= 1),
+  application_deadline DATE,
+  description TEXT,
+  requirements TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'draft', 'closed', 'filled')),
+  is_visible BOOLEAN NOT NULL DEFAULT true,
+  created_by UUID,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+  -- Strict mutual exclusivity for compensation models
+  CONSTRAINT chk_internship_compensation CHECK (
+    (compensation_type = 'stipend' AND stipend_amount IS NOT NULL AND stipend_amount > 0 AND fee_amount IS NULL) OR
+    (compensation_type = 'paid' AND fee_amount IS NOT NULL AND fee_amount > 0 AND stipend_amount IS NULL) OR
+    (compensation_type = 'non_stipend' AND stipend_amount IS NULL AND fee_amount IS NULL)
+  )
+);
 ```
 
 ### 6.3 Security, Row Level Security (RLS) & Helper Functions
@@ -850,6 +916,43 @@ NEXT_PUBLIC_SUPABASE_KEY=<anon-key>
 ---
 
 ## 11. Changelog
+- **2026-10-18 (Internship Opportunities & Live Monitoring Module Overhaul — INTERNSHIP.md Complete):**
+  1. **Strict Real-Data Architecture & Zero Synthetic Dummy Mock Elimination:**
+     - Completely scrubbed all hardcoded mock/dummy internship listings (Samsung, 32,500 INR, Aman Sharma, Harpreet, Simranjeet, 312/248 counts) from `src/constants/data.js`, `src/views/InternshipMonitoring.jsx`, and `src/expo/screens/InternshipMonitoringScreen.jsx`.
+     - In-memory fallback and database state strictly starts at 0 records. Clean, unseeded zero-state with institutional empty-state cards.
+     - Live Supabase Realtime synchronization across `internship_opportunities` and `student_internships` with instant UI auto-refresh.
+  2. **Database Schema & Constraints (`supabase/migrations/20261018_internship_opportunities.sql`):**
+     - Created `public.internship_opportunities` table with strict data integrity checks:
+       - `duration_months`: constrained `CHECK (duration_months BETWEEN 1 AND 24)`.
+       - `compensation_type`: constrained `CHECK (compensation_type IN ('stipend', 'non_stipend', 'paid'))`.
+       - **Mutual Exclusivity Enforced at DB Level:** `CHECK ((compensation_type = 'stipend' AND stipend_amount IS NOT NULL AND stipend_amount > 0 AND fee_amount IS NULL) OR (compensation_type = 'paid' AND fee_amount IS NOT NULL AND fee_amount > 0 AND stipend_amount IS NULL) OR (compensation_type = 'non_stipend' AND stipend_amount IS NULL AND fee_amount IS NULL))`.
+       - `season`: constrained `CHECK (season IN ('winter', 'summer', 'spring', 'autumn', 'any'))`.
+       - `status`: constrained `CHECK (status IN ('open', 'draft', 'closed', 'filled'))`.
+       - `skills_required` (text[]), `department` (text[]), `is_visible` (boolean).
+       - Full RLS policies for admin write/manage and public/authenticated read.
+  3. **Shared Validation Engine (`src/lib/internshipValidation.js`):**
+     - Canonical validation logic used identically by server route handlers and client-side modal forms: `validateOpportunity()`, `normalizeSkills()`, `sanitizePayload()`.
+     - De-duplicates and normalizes case-insensitive skills arrays.
+  4. **Data Layer & CRUD Functions (`src/lib/db.js`):**
+     - Added `getInternshipOpportunities(filters)` with rich multi-filter query support (search `q`, `skills`, `duration`, `season`, `compensation`, `company`, `department`, `status`, `sort`).
+     - Added `getInternshipOpportunityById(id)`, `createInternshipOpportunity(data, actor)`, `updateInternshipOpportunity(id, updates, actor)`, `deleteInternshipOpportunity(id, actor)`, `toggleInternshipOpportunityVisibility(id, actor)`, and `getStudentInternshipsFeed()`.
+     - Audit logging: Every mutation automatically creates an entry in `public.admin_audit_log` tracking the actor and payload changes.
+  5. **REST API Endpoints (`src/app/api/admin/internship-opportunities/*`):**
+     - `GET /api/admin/internship-opportunities`: Search & filter opportunities with dynamic aggregations.
+     - `POST /api/admin/internship-opportunities`: Role-gated admin insertion with schema validation and audit logging.
+     - `GET /api/admin/internship-opportunities/[id]`: Individual opportunity lookup.
+     - `PATCH /api/admin/internship-opportunities/[id]`: Partial edits and visibility toggle.
+     - `DELETE /api/admin/internship-opportunities/[id]`: Opportunity deletion with audit record.
+     - **Role Security Guard:** Strictly prevents non-admins and `COMPANY` recruiter role users from modifying opportunities (HTTP 403 `FORBIDDEN_ROLE`).
+  6. **Modular UI Components (`src/components/internship/` & `src/views/InternshipMonitoring.jsx`):**
+     - **`OpportunityCard.jsx`:** Rich card presentation with company logo/monogram, role, department badges, duration & season indicators, stipend/paid currency formatting, skills tags, status pill, visibility toggle, edit/delete actions, and hover-zoom micro-interactions (`hover:scale-[1.01] transition-all`).
+     - **`OpportunityFormModal.jsx`:** Comprehensive modal with live validation, compensation exclusivity toggle (stipend vs paid training fee), duration slider & presets, season selector, skill tags input with backspace removal, application deadline, and department multi-select.
+     - **`InternshipFilters.jsx`:** Full-width horizontal filter toolbar. Compensation, Season, and Duration filter chips are laid out side-by-side spanning the entire page width with subtle dividers and smooth interactive hover-zoom scaling (`hover:scale-105 active:scale-95`). Dynamic skill filtering with local search and expand/collapse.
+     - **`StudentInternshipCard.jsx`:** Live student internship card with status, academic details, and 1-click LinkedIn-style dossier inspection.
+     - **`InternshipMonitoring.jsx`:** Rebuilt view with dual-tab architecture (Opportunities vs Live Student Internships), real-time KPI metrics, search, sorting, grid/list view toggles, empty state with "Post First Opportunity" CTA, and delete confirmation dialog.
+  7. **Automated Testing Suite (`tests/internship-opportunities.test.mjs`):**
+     - 57 dedicated unit and integration tests covering: clean in-memory zero-state, mutual exclusivity validation, duration and season bounds, skills normalization and de-duplication, full CRUD and audit logging, multi-filter combination queries, and role-based security gating.
+     - 100% pass rate: 57/57 tests passing. Full repository test suite: 146/146 tests passing (Onboarding: 21, Admin Auth: 18, Dossier: 26, Company Auth: 24, Internship: 57).
 - **2026-10-07 (Company Sidebar Locked Tabs Removal, Multi-Account Chooser Isolation, and Balanced Auth Gateway Status):**
   1. **Company Sidebar Cleanup (Problem 1 Solved):**
      - Updated `src/components/Sidebar.jsx` navigation renderer: When `userRole === 'COMPANY'`, `navItems` is strictly filtered with `companyAllowedModules.includes(item.id)`.

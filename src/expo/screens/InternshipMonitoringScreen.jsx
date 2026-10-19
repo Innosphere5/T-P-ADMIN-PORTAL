@@ -1,10 +1,31 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { EXPO_COLORS } from '../colors';
-import { INTERNSHIPS_DATA } from '../../constants/data';
 
 export default function InternshipMonitoringScreen() {
-  const [internships] = useState(INTERNSHIPS_DATA);
+  const [internships, setInternships] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+    fetch('/api/admin/internships')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (isMounted && data?.internships && Array.isArray(data.internships)) {
+          setInternships(data.internships);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const totalCount = internships.length;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -12,88 +33,118 @@ export default function InternshipMonitoringScreen() {
         <Text style={styles.eyebrow}>MODULE 06 • EXPERIENTIAL LEARNING</Text>
         <Text style={styles.title}>Internship Monitoring</Text>
         <Text style={styles.subtitle}>
-          Mandatory 6-month industrial tracks, stipends, and mentor reviews.
+          Mandatory industrial tracks, stipends, and mentor reviews.
         </Text>
       </View>
 
       <View style={styles.heroCard}>
-        <Text style={styles.heroBadgeText}>✓ 312 Active Internships</Text>
+        <Text style={styles.heroBadgeText}>
+          {totalCount > 0 ? `✓ ${totalCount} Active Internships` : '✓ Live Tracking Active'}
+        </Text>
         <Text style={styles.heroTitle}>Mandatory Semester Track</Text>
         <Text style={styles.heroDesc}>
-          92.4% Mentor Assigned • ₹32,500 Average Monthly Corporate Stipend.
+          {totalCount > 0
+            ? `${totalCount} verified student placements currently monitored.`
+            : 'Synchronized live with university administrative registry.'}
         </Text>
       </View>
 
-      {internships.map((item) => (
-        <View key={item.id} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {item.studentName.split(' ').map((n) => n[0]).join('').substring(0, 2)}
-              </Text>
-            </View>
-            <View style={styles.cardInfo}>
-              <Text style={styles.cardName}>{item.studentName}</Text>
-              <Text style={styles.cardRoll}>{item.roll}</Text>
-            </View>
-            <Text style={styles.statusPill}>{item.status}</Text>
-          </View>
-
-          <View style={styles.detailBox}>
-            <Text style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Company: </Text>
-              <Text style={styles.detailValue}>{item.company}</Text>
-            </Text>
-            <Text style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Role: </Text>
-              <Text style={styles.detailValue}>{item.role}</Text>
-            </Text>
-            <Text style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Stipend: </Text>
-              <Text style={styles.stipendValue}>{item.stipend}</Text>
-            </Text>
-            <Text style={styles.detailRow}>
-              <Text style={styles.detailLabel}>Faculty Mentor: </Text>
-              <Text style={styles.detailValue}>{item.mentor}</Text>
-            </Text>
-          </View>
-
-          <View style={styles.progressContainer}>
-            <View style={styles.progressLabelRow}>
-              <Text style={styles.progressLabel}>Internship Completion</Text>
-              <Text style={styles.progressValue}>{item.progress}% Concluded</Text>
-            </View>
-            <View style={styles.progressBarBg}>
-              <View
-                style={[
-                  styles.progressBarFill,
-                  {
-                    width: `${item.progress}%`,
-                    backgroundColor:
-                      item.progress === 100
-                        ? EXPO_COLORS.successGreen
-                        : item.progress < 60
-                        ? '#EF4444'
-                        : EXPO_COLORS.primary,
-                  },
-                ]}
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() =>
-              Alert.alert(
-                'Evaluation Log',
-                `Scholar: ${item.studentName}\nCompany: ${item.company}\nCertificate Hash: ${item.certificateHash}`
-              )
-            }
-          >
-            <Text style={styles.actionBtnText}>View Evaluation &amp; Certificate &gt;</Text>
-          </TouchableOpacity>
+      {loading ? (
+        <View style={styles.emptyCard}>
+          <ActivityIndicator color={EXPO_COLORS.primary} />
+          <Text style={styles.emptyText}>Loading internships...</Text>
         </View>
-      ))}
+      ) : internships.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyIcon}>📋</Text>
+          <Text style={styles.emptyTitle}>No Student Internships Logged</Text>
+          <Text style={styles.emptyText}>
+            Assigned student industrial internships and verification records will appear here once created in the admin portal.
+          </Text>
+        </View>
+      ) : (
+        internships.map((item) => {
+          const studentName = item.student_name || item.studentName || 'Scholar Intern';
+          const roll = item.student_roll || item.roll || '—';
+          const company = item.company_name || item.company || 'Corporate Partner';
+          const role = item.role_title || item.role || 'Intern';
+          const stipend = item.stipend ? `₹${Number(item.stipend).toLocaleString('en-IN')} / mo` : 'Non-Stipend';
+          const mentor = item.mentor_name || item.mentor || 'Faculty Guide';
+          const status = item.status === 'completed' ? 'Completed' : (item.status === 'ongoing' ? 'Ongoing' : 'Terminated');
+          const progress = item.status === 'completed' ? 100 : (item.status === 'ongoing' ? 65 : 20);
+
+          return (
+            <View key={item.id} style={styles.card}>
+              <View style={styles.cardHeader}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>
+                    {studentName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardName}>{studentName}</Text>
+                  <Text style={styles.cardRoll}>{roll}</Text>
+                </View>
+                <Text style={styles.statusPill}>{status}</Text>
+              </View>
+
+              <View style={styles.detailBox}>
+                <Text style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Company: </Text>
+                  <Text style={styles.detailValue}>{company}</Text>
+                </Text>
+                <Text style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Role: </Text>
+                  <Text style={styles.detailValue}>{role}</Text>
+                </Text>
+                <Text style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Compensation: </Text>
+                  <Text style={styles.stipendValue}>{stipend}</Text>
+                </Text>
+                <Text style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Mentor: </Text>
+                  <Text style={styles.detailValue}>{mentor}</Text>
+                </Text>
+              </View>
+
+              <View style={styles.progressContainer}>
+                <View style={styles.progressLabelRow}>
+                  <Text style={styles.progressLabel}>Internship Completion</Text>
+                  <Text style={styles.progressValue}>{progress}% Concluded</Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <View
+                    style={[
+                      styles.progressBarFill,
+                      {
+                        width: `${progress}%`,
+                        backgroundColor:
+                          progress === 100
+                            ? EXPO_COLORS.successGreen
+                            : progress < 60
+                            ? '#EF4444'
+                            : EXPO_COLORS.primary,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.actionBtn}
+                onPress={() =>
+                  Alert.alert(
+                    'Evaluation Record',
+                    `Scholar: ${studentName}\nCompany: ${company}\nStatus: ${status}`
+                  )
+                }
+              >
+                <Text style={styles.actionBtnText}>View Evaluation &gt;</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })
+      )}
     </ScrollView>
   );
 }
@@ -114,6 +165,19 @@ const styles = StyleSheet.create({
   heroBadgeText: { color: EXPO_COLORS.goldFixed, fontSize: 10, fontWeight: '700', marginBottom: 4 },
   heroTitle: { color: '#FFF', fontSize: 16, fontWeight: '700' },
   heroDesc: { color: '#CBD5E1', fontSize: 11, marginTop: 4 },
+  emptyCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: EXPO_COLORS.borderSubtle,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  emptyIcon: { fontSize: 32, marginBottom: 8 },
+  emptyTitle: { fontSize: 14, fontWeight: '700', color: EXPO_COLORS.textPrimary, marginBottom: 4 },
+  emptyText: { fontSize: 11, color: EXPO_COLORS.textSecondary, textAlign: 'center', lineHeight: 16 },
   card: {
     backgroundColor: '#FFF',
     borderRadius: 14,
