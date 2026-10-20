@@ -222,15 +222,15 @@ export default function InternshipFilters({
         </div>
       </div>
 
-      {/* ── Filter Rows: Grid Alignment with Fixed-Width Labels & Enlarged Hover-Zoom Chips ── */}
-      <div className="pt-4 border-t border-border-subtle/70 space-y-5 w-full">
-        {/* Row 1: Compensation */}
+      {/* ── Filter Rows: Full-Width Edge-to-Edge Grid Alignment with Fixed-Width Labels ── */}
+      <div className="pt-4 border-t border-border-subtle/70 space-y-4 sm:space-y-4.5 w-full">
+        {/* Row 1: Compensation (4 Options - Full Width Edge-to-Edge) */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
-          <div className="w-40 sm:w-44 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
+          <div className="w-36 sm:w-40 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
             <span className="material-symbols-outlined text-[19px] text-text-secondary/80">paid</span>
             <span>Compensation:</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 lg:gap-3 flex-1 w-full">
             {COMPENSATION_TYPES.map((ct) => {
               const active = (filters.compensation || '') === ct.value;
               return (
@@ -238,27 +238,27 @@ export default function InternshipFilters({
                   key={ct.value}
                   type="button"
                   onClick={() => handleTextChange('compensation', active && ct.value !== '' ? '' : ct.value)}
-                  className={`filter-chip relative inline-flex items-center gap-2 px-[18px] py-[10px] min-h-[42px] rounded-xl text-[14px] font-semibold select-none cursor-pointer border ${
+                  className={`filter-chip relative w-full inline-flex items-center justify-center gap-2 px-2.5 sm:px-3 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-[13px] xl:text-[14px] font-semibold select-none cursor-pointer border text-center transition-all ${
                     active
                       ? 'filter-chip-active bg-gradient-to-r from-[#8B1D2C] to-[#6E1521] text-white border-transparent shadow-sm'
-                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs'
+                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs hover:bg-[#FDF6F7]'
                   }`}
                 >
-                  {ct.icon && <span className="material-symbols-outlined text-[19px]">{ct.icon}</span>}
-                  <span>{ct.label}</span>
+                  {ct.icon && <span className="material-symbols-outlined text-[18px] sm:text-[19px] shrink-0">{ct.icon}</span>}
+                  <span className="whitespace-nowrap">{ct.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Row 2: Season */}
+        {/* Row 2: Season (5 Options - Full Width Edge-to-Edge) */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
-          <div className="w-40 sm:w-44 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
+          <div className="w-36 sm:w-40 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
             <span className="material-symbols-outlined text-[19px] text-text-secondary/80">calendar_month</span>
             <span>Season:</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 sm:gap-2.5 lg:gap-3 flex-1 w-full">
             {SEASONS.map((sn) => {
               const active = (filters.season || '') === sn.value;
               return (
@@ -266,27 +266,29 @@ export default function InternshipFilters({
                   key={sn.value}
                   type="button"
                   onClick={() => handleTextChange('season', active && sn.value !== '' ? '' : sn.value)}
-                  className={`filter-chip relative inline-flex items-center gap-2 px-[18px] py-[10px] min-h-[42px] rounded-xl text-[14px] font-semibold select-none cursor-pointer border ${
+                  className={`filter-chip relative w-full inline-flex items-center justify-center gap-2 px-2 sm:px-2.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-[13px] xl:text-[14px] font-semibold select-none cursor-pointer border text-center transition-all ${
+                    sn.value === 'autumn' ? 'col-span-2 md:col-span-1 ' : ''
+                  }${
                     active
                       ? 'filter-chip-active bg-gradient-to-r from-[#8B1D2C] to-[#6E1521] text-white border-transparent shadow-sm'
-                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs'
+                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs hover:bg-[#FDF6F7]'
                   }`}
                 >
-                  {sn.icon && <span className="material-symbols-outlined text-[19px]">{sn.icon}</span>}
-                  <span>{sn.label}</span>
+                  {sn.icon && <span className="material-symbols-outlined text-[18px] sm:text-[19px] shrink-0">{sn.icon}</span>}
+                  <span className="whitespace-nowrap">{sn.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* Row 3: Duration */}
+        {/* Row 3: Duration (6 Options - Full Width Edge-to-Edge) */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 w-full">
-          <div className="w-40 sm:w-44 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
+          <div className="w-36 sm:w-40 shrink-0 flex items-center gap-2 text-xs sm:text-[13px] font-bold uppercase tracking-wider text-text-secondary select-none">
             <span className="material-symbols-outlined text-[19px] text-text-secondary/80">schedule</span>
             <span>Duration:</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5 lg:gap-3 flex-1 w-full">
             {DURATION_PRESETS.map((dp) => {
               const active = (filters.duration || '') === dp.value;
               return (
@@ -294,13 +296,13 @@ export default function InternshipFilters({
                   key={dp.value}
                   type="button"
                   onClick={() => handleTextChange('duration', active && dp.value !== '' ? '' : dp.value)}
-                  className={`filter-chip relative inline-flex items-center gap-2 px-[18px] py-[10px] min-h-[42px] rounded-xl text-[14px] font-semibold select-none cursor-pointer border ${
+                  className={`filter-chip relative w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-1.5 sm:px-2.5 py-2.5 min-h-[42px] rounded-xl text-xs sm:text-[13px] xl:text-[14px] font-semibold select-none cursor-pointer border text-center transition-all ${
                     active
                       ? 'filter-chip-active bg-gradient-to-r from-[#8B1D2C] to-[#6E1521] text-white border-transparent shadow-sm'
-                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs'
+                      : 'filter-chip-inactive bg-white/95 text-text-primary border-slate-200/90 shadow-2xs hover:bg-[#FDF6F7]'
                   }`}
                 >
-                  <span>{dp.label}</span>
+                  <span className="whitespace-nowrap">{dp.label}</span>
                 </button>
               );
             })}
