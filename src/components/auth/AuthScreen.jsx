@@ -249,7 +249,7 @@ export default function AuthScreen({ onAuthenticated, initialPortalType = 'admin
 
       setCompanyLogoUrl(data.url);
       setSuccessMsg('Company logo uploaded to Cloudinary successfully.');
-      setTimeout(() => setSuccessMsg(''), 3500);
+      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Logo upload error:', err);
       setLogoUploadError(err.message || 'Logo upload failed');

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, createContext, useContext } from 'react';
 import AuthScreen from './AuthScreen';
+import SessionLoader, { MIN_LOADER_MS, FADE_MS } from '@/components/common/SessionLoader';
 import {
   getAdminMe,
   adminLogout,
@@ -24,8 +25,10 @@ const SPLASH_SHOWN_KEY = 'rimt_splash_shown';
 export default function AuthGuard({ children, initialPortalType = 'admin' }) {
   const [admin, setAdmin] = useState(null);
   const [accounts, setAccounts] = useState([]);
-  const [mounted, setMounted] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [sessionReady, setSessionReady] = useState(false);
+  const [minElapsed, setMinElapsed] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [loaderExited, setLoaderExited] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const splashTimeoutsRef = useRef([]);
@@ -38,6 +41,36 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
   // Synchronous client hydration on mount + background token check
   useEffect(() => {
     let isMounted = true;
+
+    let minTimer = null;
+
+    const isSeen =
+      typeof window !== 'undefined' &&
+      (window.sessionStorage?.getItem('rimt_loader_seen') === '1' ||
+       document.documentElement.dataset.rimtLoader === 'seen');
+
+    if (isSeen) {
+      setMinElapsed(true);
+      setLoaderExited(true);
+    } else {
+      // Minimum display timer for first boot: clock from first-contentful-paint (1.9s or 0.8s under reduced motion)
+      const motionReduced =
+        typeof window !== 'undefined' &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const targetMin = motionReduced ? 800 : MIN_LOADER_MS;
+
+      const fcp = typeof performance !== 'undefined'
+        ? performance.getEntriesByName('first-contentful-paint')[0]
+        : null;
+      const sinceFirstPaint = fcp ? performance.now() - fcp.startTime : 0;
+      const wait = Math.max(0, targetMin - sinceFirstPaint);
+
+      minTimer = setTimeout(() => {
+        if (isMounted) {
+          setMinElapsed(true);
+        }
+      }, wait);
+    }
 
     // Immediately restore cached credentials in client
     try {
@@ -58,6 +91,11 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
       }
     } catch (e) {}
 
+    // On repeat visit / refresh, immediately allow content to render without waiting
+    if (isSeen) {
+      setSessionReady(true);
+    }
+
     // Check if returning from add-account page — show splash animation
     try {
       const showSplashForAdd = sessionStorage.getItem('rimt_show_splash_for_add');
@@ -77,9 +115,6 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
       }
     } catch (e) {}
 
-    // Mark client mount completed
-    setMounted(true);
-
     async function checkAuth() {
       try {
         const liveAdmin = await getAdminMe();
@@ -98,7 +133,7 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
         console.warn('Auth check error:', err);
       } finally {
         if (isMounted) {
-          setLoading(false);
+          setSessionReady(true);
         }
       }
     }
@@ -107,9 +142,27 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
 
     return () => {
       isMounted = false;
+      if (minTimer) clearTimeout(minTimer);
       clearSplashTimeouts();
     };
   }, []);
+
+  // Handle smooth exit fade-out when session check & minimum duration are both fulfilled
+  useEffect(() => {
+    if (sessionReady && minElapsed && !isLeaving && !loaderExited) {
+      setIsLeaving(true);
+      const fadeTimer = setTimeout(() => {
+        setLoaderExited(true);
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-rimt-loader', 'seen');
+        }
+        try {
+          sessionStorage.setItem('rimt_loader_seen', '1');
+        } catch (e) {}
+      }, FADE_MS);
+      return () => clearTimeout(fadeTimer);
+    }
+  }, [sessionReady, minElapsed, isLeaving, loaderExited]);
 
   const handleSignOut = async () => {
     // Preserve current admin in saved accounts list on this device before signing out
@@ -119,6 +172,10 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
     await adminLogout();
     try {
       sessionStorage.removeItem(SPLASH_SHOWN_KEY);
+      sessionStorage.removeItem('rimt_loader_seen');
+      if (typeof document !== 'undefined') {
+        document.documentElement.removeAttribute('data-rimt-loader');
+      }
     } catch (e) {}
     clearSplashTimeouts();
     setShowSplash(false);
@@ -204,6 +261,10 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
 
     try {
       sessionStorage.setItem(SPLASH_SHOWN_KEY, 'true');
+      sessionStorage.setItem('rimt_loader_seen', '1');
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-rimt-loader', 'seen');
+      }
     } catch (e) {}
 
     const exitTimer = setTimeout(() => {
@@ -217,44 +278,40 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
     splashTimeoutsRef.current.push(exitTimer, finishTimer);
   };
 
-  // Prevent SSR hydration mismatch: render identical shell on server & initial client render
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF7F2]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-[#6B0018]/20 border-t-[#6B0018] rounded-full animate-spin" />
-          <span className="text-xs font-semibold tracking-wider uppercase text-stone-500">Initializing Session...</span>
-        </div>
-      </div>
-    );
-  }
+  // Determine if underlying UI is ready to mount (only AFTER session check resolves, never before)
+  const isContentReady = sessionReady;
 
-  // While splash verification animation is active (only on login)
-  if (showSplash) {
-    return <SplashVerificationScreen isExiting={isExiting} />;
-  }
-
-  // Not authenticated: render the Login screen
-  if (!admin) {
-    return <AuthScreen onAuthenticated={handleAuthenticated} initialPortalType={initialPortalType} />;
-  }
-
-  // Authenticated: render the admin app immediately
   return (
-    <AdminAuthContext.Provider
-      value={{
-        admin,
-        setAdmin,
-        accounts,
-        switchAccount: handleSwitchAccount,
-        addAccount: handleAddAccount,
-        removeAccount: handleRemoveAccount,
-        signOut: handleSignOut,
-        isAuthenticated: true,
-      }}
-    >
-      {children}
-    </AdminAuthContext.Provider>
+    <>
+      {/* Underlying content mounts as soon as session check resolves, directly under the fixed loader overlay */}
+      {isContentReady && (
+        showSplash ? (
+          <SplashVerificationScreen isExiting={isExiting} />
+        ) : !admin ? (
+          <AuthScreen onAuthenticated={handleAuthenticated} initialPortalType={initialPortalType} />
+        ) : (
+          <AdminAuthContext.Provider
+            value={{
+              admin,
+              setAdmin,
+              accounts,
+              switchAccount: handleSwitchAccount,
+              addAccount: handleAddAccount,
+              removeAccount: handleRemoveAccount,
+              signOut: handleSignOut,
+              isAuthenticated: true,
+            }}
+          >
+            {children}
+          </AdminAuthContext.Provider>
+        )
+      )}
+
+      {/* Fixed z-[9999] Session Loader Overlay — covers viewport until minElapsed, fades over FADE_MS, then unmounts */}
+      {!loaderExited && (
+        <SessionLoader leaving={isLeaving} />
+      )}
+    </>
   );
 }
 
@@ -267,7 +324,7 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
  *    - Completely plain middle (middle border layer removed per user request)
  *    - Outer rounded line border preserved
  *    - Red circle out -> Green checkmark pop-in
- *    - "RIMT UNIVERSITY • T&P PORTAL" text color red -> green transition
+ *    - "RIMT UNIVERSITY • PORTAL" text color red -> green transition
  *    - Smooth dissolve exit at 3.0s
  * ────────────────────────────────────────────────────────────────────── */
 function SplashVerificationScreen({ isExiting }) {
