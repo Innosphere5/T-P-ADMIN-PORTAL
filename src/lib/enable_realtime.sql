@@ -1,28 +1,76 @@
 -- ====================================================================
--- ENABLE SUPABASE REALTIME ON ALL STUDENT TABLES
--- Run this in the Supabase SQL Editor to ensure Realtime events
--- are published for both admin panel and mobile app listeners.
+-- ENABLE SUPABASE REALTIME ON ALL STUDENT & SYSTEM TABLES
+-- Run this in the Supabase SQL Editor.
+-- Completely idempotent and safe to run multiple times.
 -- ====================================================================
 
--- Add all student-related tables to the supabase_realtime publication.
--- This is idempotent — Supabase ignores tables already in the publication.
+DO $$
+DECLARE
+  t text;
+  tables text[] := ARRAY[
+    'students',
+    'student_profiles',
+    'student_academic_summary',
+    'student_projects',
+    'student_git_projects',
+    'student_certificates',
+    'student_internships',
+    'student_semester_records',
+    'student_grades',
+    'admin_audit_log',
+    'internship_opportunities',
+    'notifications',
+    'student_notification_reads'
+  ];
+  replica_tables text[] := ARRAY[
+    'students',
+    'student_profiles',
+    'student_academic_summary',
+    'notifications'
+  ];
+BEGIN
+  -- 1. Ensure supabase_realtime publication exists
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+    RAISE NOTICE 'Created publication supabase_realtime';
+  END IF;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.students;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_profiles;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_academic_summary;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_projects;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_git_projects;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_certificates;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_internships;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_semester_records;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_grades;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_audit_log;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
-ALTER PUBLICATION supabase_realtime ADD TABLE public.student_notification_reads;
+  -- 2. Add each table to supabase_realtime if not already present
+  FOREACH t IN ARRAY tables LOOP
+    -- Check if table actually exists in public schema first
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = t
+    ) THEN
+      -- Check if already added to supabase_realtime
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = t
+      ) THEN
+        BEGIN
+          EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', t);
+          RAISE NOTICE 'Added table public.% to supabase_realtime', t;
+        EXCEPTION WHEN duplicate_object THEN
+          RAISE NOTICE 'Table public.% was already a member of supabase_realtime, skipped.', t;
+        END;
+      ELSE
+        RAISE NOTICE 'Table public.% is already in supabase_realtime, skipped.', t;
+      END IF;
+    ELSE
+      RAISE NOTICE 'Table public.% does not exist, skipped.', t;
+    END IF;
+  END LOOP;
 
--- Set REPLICA IDENTITY to FULL on tables where we need old_data in payloads
--- (useful for detecting which fields changed)
-ALTER TABLE public.students REPLICA IDENTITY FULL;
-ALTER TABLE public.student_profiles REPLICA IDENTITY FULL;
-ALTER TABLE public.student_academic_summary REPLICA IDENTITY FULL;
-ALTER TABLE public.notifications REPLICA IDENTITY FULL;
+  -- 3. Set REPLICA IDENTITY FULL on specified tables for change tracking
+  FOREACH t IN ARRAY replica_tables LOOP
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables 
+      WHERE table_schema = 'public' AND table_name = t
+    ) THEN
+      EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL;', t);
+      RAISE NOTICE 'Set REPLICA IDENTITY FULL on public.%', t;
+    END IF;
+  END LOOP;
+END $$;
