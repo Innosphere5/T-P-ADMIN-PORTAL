@@ -91,12 +91,16 @@ CREATE POLICY "Students can view and manage their read receipts"
 -- REALTIME PUBLICATION: Enable live WebSocket broadcasting
 -- ====================================================================
 
+ALTER TABLE public.notifications REPLICA IDENTITY FULL;
+ALTER TABLE public.student_notification_reads REPLICA IDENTITY FULL;
+
 DO $$
 BEGIN
   IF EXISTS (
     SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.student_notification_reads;
   END IF;
 EXCEPTION
   WHEN duplicate_object THEN NULL;
@@ -156,11 +160,19 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS trg_notify_on_internship_created ON public.internship_opportunities;
-CREATE TRIGGER trg_notify_on_internship_created
-  AFTER INSERT ON public.internship_opportunities
-  FOR EACH ROW
-  EXECUTE FUNCTION public.fn_notify_on_internship_created();
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_schema = 'public' AND table_name = 'internship_opportunities'
+  ) THEN
+    DROP TRIGGER IF EXISTS trg_notify_on_internship_created ON public.internship_opportunities;
+    CREATE TRIGGER trg_notify_on_internship_created
+      AFTER INSERT ON public.internship_opportunities
+      FOR EACH ROW
+      EXECUTE FUNCTION public.fn_notify_on_internship_created();
+  END IF;
+END $$;
 
 -- ====================================================================
 -- SEED INITIAL SYSTEM NOTIFICATIONS FOR IMMEDIATE VERIFICATION
