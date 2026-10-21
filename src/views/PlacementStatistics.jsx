@@ -689,6 +689,12 @@ export default function PlacementStatistics({ globalSearch = '' }) {
             avatar: selectedStudentForModal.photoUrl || selectedStudentForModal.avatar || selectedStudentForModal.avatar_url,
             avatar_url: selectedStudentForModal.photoUrl || selectedStudentForModal.avatar || selectedStudentForModal.avatar_url,
             department: selectedStudentForModal.department || selectedStudentForModal.dept,
+            bio: selectedStudentForModal.bio || selectedStudentForModal.about_me || null,
+            about_me: selectedStudentForModal.bio || selectedStudentForModal.about_me || null,
+            skills: selectedStudentForModal.skills || [],
+            cgpa: selectedStudentForModal.cgpa ?? null,
+            headline: selectedStudentForModal.headline || selectedStudentForModal.profession || null,
+            profession: selectedStudentForModal.profession || null,
           }}
           isOpen={!!selectedStudentForModal}
           onClose={() => setSelectedStudentForModal(null)}

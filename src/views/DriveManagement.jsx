@@ -20,6 +20,7 @@ import {
   dispatchNotification,
   fetchApprovedStudents,
 } from '@/lib/driveClient';
+import { createNotification } from '@/lib/db';
 import {
   deriveDriveStatus,
   generateDrivesCsv,
@@ -270,8 +271,36 @@ export default function DriveManagement({ globalSearch = '' }) {
         setShowCreateModal(false);
         showToast(`Drive "${formData.title}" scheduled successfully.`);
 
-        // If published, offer notification confirm modal
+        // If published, auto-insert notification into Supabase AND offer notification confirm modal
         if (formData.status === 'PUBLISHED') {
+          // Insert notification into Supabase so student app receives it
+          try {
+            await createNotification({
+              title: `Placement Drive: ${formData.title}`,
+              message: `${formData.companyName || formData.title} campus recruitment drive has been published. Package: ${formatCtcRange(formData.packageMinLpa, formData.packageMaxLpa)}. Mode: ${formData.mode || 'On-campus'}. ${formData.venue ? 'Venue: ' + formData.venue + '. ' : ''}${formData.registrationDeadline ? 'Register by: ' + formatDateTime(formData.registrationDeadline) + '.' : 'Check the portal for registration details.'}`,
+              type: 'drive',
+              priority: 'URGENT',
+              target_type: 'all',
+              target_id: null,
+              data: {
+                drive_id: res.drive.id,
+                company_name: formData.companyName || '',
+                role_title: formData.roleTitle || formData.title,
+                package_min: formData.packageMinLpa || null,
+                package_max: formData.packageMaxLpa || null,
+                mode: formData.mode || 'On-campus',
+                venue: formData.venue || '',
+                starts_at: formData.startsAt || null,
+                registration_deadline: formData.registrationDeadline || null,
+                min_cgpa: formData.eligibility?.minCgpa || null,
+              },
+              action_route: 'placement',
+              created_by: 'T&P Administration',
+            });
+          } catch (notifErr) {
+            console.warn('Failed to auto-dispatch drive notification to Supabase:', notifErr.message);
+          }
+
           const matchingEligible = approvedStudents.filter((st) => {
             const depts = formData.eligibility?.departments || [];
             if (depts.length > 0 && !depts.includes(st.department || 'BCA')) return false;
@@ -381,6 +410,27 @@ export default function DriveManagement({ globalSearch = '' }) {
   // Confirm and dispatch notification
   const handleConfirmNotification = async (payload) => {
     setNotifyModalState((prev) => ({ ...prev, isSending: true }));
+
+    // Always persist notification to Supabase notifications table for student app delivery
+    try {
+      await createNotification({
+        title: payload.title,
+        message: payload.body,
+        type: 'drive',
+        priority: 'URGENT',
+        target_type: 'all',
+        target_id: null,
+        data: {
+          drive_id: notifyModalState.driveId,
+          event: payload.event,
+        },
+        action_route: 'placement',
+        created_by: 'Raj Kumar (HOD BCA)',
+      });
+    } catch (notifErr) {
+      console.warn('Failed to persist drive notification to Supabase:', notifErr.message);
+    }
+
     const res = await dispatchNotification({
       driveId: notifyModalState.driveId,
       event: payload.event,

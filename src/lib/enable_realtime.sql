@@ -17,9 +17,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.student_internships;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.student_semester_records;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.student_grades;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.admin_audit_log;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.student_notification_reads;
 
 -- Set REPLICA IDENTITY to FULL on tables where we need old_data in payloads
 -- (useful for detecting which fields changed)
 ALTER TABLE public.students REPLICA IDENTITY FULL;
 ALTER TABLE public.student_profiles REPLICA IDENTITY FULL;
 ALTER TABLE public.student_academic_summary REPLICA IDENTITY FULL;
+ALTER TABLE public.notifications REPLICA IDENTITY FULL;

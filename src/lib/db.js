@@ -2524,6 +2524,38 @@ export async function createInternshipOpportunity(data, actor = null) {
     newData: opportunity,
   });
 
+  // Automatically dispatch notification to student portal
+  try {
+    const stipendStr = opportunity.compensation_type === 'stipend' && opportunity.stipend_amount
+      ? `₹${Number(opportunity.stipend_amount).toLocaleString('en-IN')}/month`
+      : (opportunity.compensation_type === 'paid' ? 'Paid Training' : 'Non-Stipend');
+
+    await createNotification({
+      title: `New Internship: ${opportunity.title}`,
+      message: `${opportunity.company_name} is hiring for ${opportunity.title} (${stipendStr}). Duration: ${opportunity.duration_months} months. Mode: ${opportunity.work_mode}. Application deadline: ${opportunity.application_deadline || 'Open'}.`,
+      type: 'internship',
+      priority: 'HIGH',
+      target_type: 'all',
+      target_id: null,
+      data: {
+        opportunity_id: opportunity.id,
+        company_name: opportunity.company_name,
+        title: opportunity.title,
+        compensation_type: opportunity.compensation_type,
+        stipend_amount: opportunity.stipend_amount,
+        duration_months: opportunity.duration_months,
+        work_mode: opportunity.work_mode,
+        location: opportunity.location,
+        application_deadline: opportunity.application_deadline,
+        required_skills: opportunity.required_skills || [],
+      },
+      action_route: 'placement',
+      created_by: actorName,
+    }, actor);
+  } catch (notifErr) {
+    console.warn('Failed to auto-dispatch internship notification:', notifErr.message);
+  }
+
   return opportunity;
 }
 
@@ -2819,4 +2851,204 @@ export async function createCompany({
 export async function getAllCompanies() {
   await initCompanyDb();
   return getMemoryCompanies();
+}
+
+/**
+ * ====================================================================
+ * NOTIFICATIONS SYSTEM (Scalable Ingestion & PubSub Dispatch)
+ * ====================================================================
+ */
+
+if (!global.__RIMT_DB_NOTIFICATIONS) {
+  global.__RIMT_DB_NOTIFICATIONS = [
+    {
+      id: 'e0000000-0000-0000-0000-000000000001',
+      title: 'New Internship: Cloud & DevOps Intern',
+      message: 'Infosys SpringBoard opened applications for Cloud & DevOps Interns (₹25,000/month). Duration: 6 months. Mode: Hybrid (Chandigarh/Mohali). Open to BCA and B.Sc Cyber Security students.',
+      type: 'internship',
+      priority: 'HIGH',
+      target_type: 'all',
+      target_id: null,
+      data: {
+        company_name: 'Infosys SpringBoard',
+        title: 'Cloud & DevOps Intern',
+        compensation_type: 'stipend',
+        stipend_amount: 25000,
+        duration_months: 6,
+        work_mode: 'hybrid',
+        location: 'Chandigarh / Mohali',
+        application_deadline: '2026-11-15',
+        required_skills: ['AWS', 'Docker', 'Linux', 'Python'],
+      },
+      action_route: 'placement',
+      is_active: true,
+      created_by: 'Prof. H. S. Bawa',
+      created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 mins ago
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: 'e0000000-0000-0000-0000-000000000002',
+      title: 'Placement Drive: TCS Digital & Ninja 2026',
+      message: 'Tata Consultancy Services (TCS) on-campus recruitment drive is scheduled for 28th October 2026. CTC Package: 7.5 - 11.5 LPA. Eligibility: Minimum 65% aggregate with zero active backlogs. Register by 24th Oct.',
+      type: 'drive',
+      priority: 'URGENT',
+      target_type: 'all',
+      target_id: null,
+      data: {
+        company_name: 'Tata Consultancy Services',
+        role_title: 'Software Engineer / Systems Engineer',
+        package_min: 7.5,
+        package_max: 11.5,
+        mode: 'On-campus',
+        venue: 'RIMT Central Auditorium & Lab 4',
+        starts_at: '2026-10-28T09:30:00Z',
+        registration_deadline: '2026-10-24T23:59:00Z',
+        min_cgpa: 6.5,
+      },
+      action_route: 'placement',
+      is_active: true,
+      created_by: 'T&P Administration',
+      created_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(), // 3 hours ago
+      updated_at: new Date().toISOString(),
+    },
+    {
+      id: 'e0000000-0000-0000-0000-000000000003',
+      title: 'New Internship: Cyber Security Analyst Trainee',
+      message: 'QuickHeal Security Labs is inviting applications for a 4-month Cyber Security Analyst Trainee role (₹20,000/month stipend). Focus: Penetration testing and network forensics.',
+      type: 'internship',
+      priority: 'NORMAL',
+      target_type: 'all',
+      target_id: null,
+      data: {
+        company_name: 'QuickHeal Security Labs',
+        title: 'Cyber Security Analyst Trainee',
+        compensation_type: 'stipend',
+        stipend_amount: 20000,
+        duration_months: 4,
+        work_mode: 'remote',
+        location: 'Remote',
+        application_deadline: '2026-11-05',
+        required_skills: ['Network Security', 'Wireshark', 'Ethical Hacking'],
+      },
+      action_route: 'placement',
+      is_active: true,
+      created_by: 'T&P Administration',
+      created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+      updated_at: new Date().toISOString(),
+    },
+  ];
+}
+
+export async function getNotifications(filters = {}) {
+  let list = [];
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/notifications?is_active=eq.true&order=created_at.desc`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          list = rows;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getNotifications query notice:', e.message);
+    }
+  }
+
+  if (!list || list.length === 0) {
+    if (!global.__RIMT_DB_NOTIFICATIONS) {
+      global.__RIMT_DB_NOTIFICATIONS = [];
+    }
+    list = [...global.__RIMT_DB_NOTIFICATIONS];
+  }
+
+  let result = list;
+
+  if (filters.type && filters.type !== 'all') {
+    result = result.filter((n) => n.type === filters.type);
+  }
+
+  if (filters.q) {
+    const q = filters.q.toLowerCase().trim();
+    result = result.filter(
+      (n) =>
+        (n.title && n.title.toLowerCase().includes(q)) ||
+        (n.message && n.message.toLowerCase().includes(q)) ||
+        (n.data?.company_name && n.data.company_name.toLowerCase().includes(q))
+    );
+  }
+
+  return result;
+}
+
+export async function createNotification(data, actor = null) {
+  if (!data.title || !data.message) {
+    throw new Error('Notification title and message are required');
+  }
+
+  const id = crypto.randomUUID ? crypto.randomUUID() : `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const now = new Date().toISOString();
+  const actorName = actor?.full_name || actor?.name || 'T&P Administration';
+  const actorId = actor?.id || actor?.adminId || null;
+
+  const notification = {
+    id,
+    title: String(data.title).trim(),
+    message: String(data.message).trim(),
+    type: data.type || 'general',
+    priority: data.priority || 'NORMAL',
+    target_type: data.target_type || 'all',
+    target_id: data.target_id || null,
+    data: data.data || {},
+    action_route: data.action_route || 'placement',
+    is_active: data.is_active !== false,
+    created_by: data.created_by || actorName,
+    created_at: now,
+    updated_at: now,
+  };
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const writeHeaders = getAdminWriteHeaders();
+      if (writeHeaders) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+          method: 'POST',
+          headers: writeHeaders,
+          body: JSON.stringify(notification),
+        });
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows) && rows[0]) {
+            Object.assign(notification, rows[0]);
+          }
+        } else {
+          const errBody = await res.text().catch(() => '');
+          console.error(`[createNotification] Supabase INSERT failed (HTTP ${res.status}):`, errBody);
+        }
+      } else {
+        console.warn('[createNotification] No write headers available — SUPABASE_SERVICE_ROLE_KEY and SUPABASE_KEY are both missing');
+      }
+    } catch (e) {
+      console.warn('Supabase createNotification notice:', e.message);
+    }
+  }
+
+  if (!global.__RIMT_DB_NOTIFICATIONS) {
+    global.__RIMT_DB_NOTIFICATIONS = [];
+  }
+  global.__RIMT_DB_NOTIFICATIONS.unshift(notification);
+
+  await recordAuditLog({
+    actorId,
+    tableName: 'notifications',
+    recordId: notification.id,
+    action: 'insert',
+    oldData: null,
+    newData: notification,
+  });
+
+  return notification;
 }
