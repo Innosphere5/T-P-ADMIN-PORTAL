@@ -17,7 +17,7 @@ export const MIN_LOADER_MS = 1900;
 export const FADE_MS = 300;
 
 export default function SessionLoader({
-  message = 'Initializing Session...',
+  message = 'Verifying Institutional Session...',
   leaving = false,
 }) {
   return (
@@ -54,6 +54,17 @@ export default function SessionLoader({
             className="rimt-loader__logo-img"
           />
         </div>
+      </div>
+
+      {/* Institution Brand Tag */}
+      <div className="rimt-loader__brand-tag">
+        <div className="rimt-loader__brand-dot" aria-hidden="true">
+          <span className="rimt-loader__brand-dot-pulse" />
+          <span className="rimt-loader__brand-dot-core" />
+        </div>
+        <span className="rimt-loader__brand-text">
+          RIMT UNIVERSITY • T&amp;P PORTAL
+        </span>
       </div>
 
       {/* Verification / Initializing Status Indicator */}

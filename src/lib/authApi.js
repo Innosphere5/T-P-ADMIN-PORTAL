@@ -274,6 +274,7 @@ export async function getAdminMe() {
       const res = await fetch('/api/company/auth/me', {
         method: 'GET',
         headers,
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined,
       });
       if (res.ok) {
         const data = await res.json();
@@ -293,6 +294,7 @@ export async function getAdminMe() {
     const res = await fetch('/api/admin/auth/me', {
       method: 'GET',
       headers,
+      signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(2000) : undefined,
     });
 
     if (!res.ok) {

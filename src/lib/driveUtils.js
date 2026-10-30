@@ -224,6 +224,55 @@ export function computeScheduleDiff(oldDrive, newDrive) {
   return diffs;
 }
 
+export const DRIVE_CATEGORIES = [
+  { id: 'COMPANY_RECRUITMENT', label: 'Campus Recruitment Drive', icon: 'apartment', description: 'Corporate on/off campus recruitment with CTC & hiring rounds' },
+  { id: 'COLLEGE_EVENT', label: 'College Event / Function', icon: 'celebration', description: 'Freshers celebration, annual day, department festivals & cultural showcases' },
+  { id: 'COMPETITION', label: 'Department Competition / Hackathon', icon: 'emoji_events', description: 'Coding contests, hackathons, quizzes, project expos & prize challenges' },
+  { id: 'WORKSHOP', label: 'Technical Workshop / Seminar', icon: 'school', description: 'Hands-on technical workshops, guest lectures, webinars & certification sessions' },
+  { id: 'PLACEMENT_ACTIVITY', label: 'Placement Activity / Bootcamp', icon: 'psychology', description: 'Mock tests, pre-placement talks (PPT), resume audits & training bootcamps' },
+];
+
+export function getCategoryMeta(category) {
+  switch (category) {
+    case 'COLLEGE_EVENT':
+      return {
+        label: 'College Event / Function',
+        icon: 'celebration',
+        bg: 'bg-amber-50 text-amber-800 border-amber-200/80',
+        isRecruitment: false,
+      };
+    case 'COMPETITION':
+      return {
+        label: 'Competition / Hackathon',
+        icon: 'emoji_events',
+        bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
+        isRecruitment: false,
+      };
+    case 'WORKSHOP':
+      return {
+        label: 'Technical Workshop',
+        icon: 'school',
+        bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/80',
+        isRecruitment: false,
+      };
+    case 'PLACEMENT_ACTIVITY':
+      return {
+        label: 'Placement Activity',
+        icon: 'psychology',
+        bg: 'bg-purple-50 text-purple-800 border-purple-200/80',
+        isRecruitment: false,
+      };
+    case 'COMPANY_RECRUITMENT':
+    default:
+      return {
+        label: 'Campus Recruitment',
+        icon: 'apartment',
+        bg: 'bg-surface-container-high text-on-surface-variant border-white/60',
+        isRecruitment: true,
+      };
+  }
+}
+
 /**
  * Form validation helper
  * @param {Object} data
@@ -233,15 +282,20 @@ export function validateDriveForm(data) {
   const errors = {};
 
   if (!data.title || !data.title.trim()) {
-    errors.title = 'Drive title is required';
+    errors.title = 'Drive or Event title is required';
   }
 
   if (!data.category) {
-    errors.category = 'Drive category is required';
+    errors.category = 'Category is required';
   }
 
-  if (data.category === 'COMPANY_RECRUITMENT' && (!data.companyName || !data.companyName.trim())) {
+  // Company / Organiser validation
+  const isCorporate = data.category === 'COMPANY_RECRUITMENT';
+  if (isCorporate && (!data.companyName || !data.companyName.trim())) {
     errors.companyName = 'Company name is required for recruitment drives';
+  } else if (!isCorporate && (!data.companyName || !data.companyName.trim())) {
+    // For non-recruitment, this field serves as the Host Department / Organiser
+    errors.companyName = 'Organiser / host department or club is required';
   }
 
   if (!data.mode) {
@@ -260,7 +314,7 @@ export function validateDriveForm(data) {
     const start = new Date(data.startsAt);
     const deadline = new Date(data.registrationDeadline);
     if (deadline > start) {
-      errors.registrationDeadline = 'Registration deadline must be on or before drive start';
+      errors.registrationDeadline = 'Registration deadline must be on or before start time';
     }
   }
 
@@ -399,3 +453,46 @@ export function generateResultsCsv(drive, stageFilter = null) {
 
   return [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
 }
+
+/**
+ * Generates CSV string for registered students of a drive or event
+ * @param {Array<Object>} registrations
+ * @param {Object} drive
+ * @returns {string}
+ */
+export function generateRegistrationsCsv(registrations = [], drive = {}) {
+  const headers = [
+    'Registration ID',
+    'Drive / Event Title',
+    'Category',
+    'Student Name',
+    'Roll Number',
+    'Department',
+    'Semester',
+    'CGPA',
+    'Email Address',
+    'Contact Number',
+    'Registration Source',
+    'Application Status',
+    'Registered Date & Time (IST)',
+  ];
+
+  const rows = registrations.map((r) => [
+    escapeCsv(r.id),
+    escapeCsv(drive.title || r.drive_title || '—'),
+    escapeCsv(drive.category || '—'),
+    escapeCsv(r.student_name || r.name || '—'),
+    escapeCsv(r.roll_no || r.roll_number || '—'),
+    escapeCsv(r.department || '—'),
+    escapeCsv(r.semester || '—'),
+    escapeCsv(r.cgpa ?? '—'),
+    escapeCsv(r.email || '—'),
+    escapeCsv(r.phone || '—'),
+    escapeCsv(r.registration_source || 'mobile_app'),
+    escapeCsv(r.status || 'REGISTERED'),
+    escapeCsv(formatDateTime(r.registered_at || r.createdAt)),
+  ]);
+
+  return [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
+}
+

@@ -426,6 +426,57 @@ body {
   image-rendering: -webkit-optimize-contrast;
 }
 
+/* ── Institution Brand Tag ── */
+.rimt-loader__brand-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.90);
+  border: 1px solid #E7D6C4;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  margin-bottom: 12px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.rimt-loader__brand-dot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+}
+
+.rimt-loader__brand-dot-pulse {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #8B1D2C;
+  opacity: 0.75;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.rimt-loader__brand-dot-core {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #8B1D2C;
+}
+
+.rimt-loader__brand-text {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8B1D2C;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
 /* ── Verification / Initializing Status Pill ── */
 .rimt-loader__status {
   display: flex;

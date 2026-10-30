@@ -26,9 +26,6 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
   const [admin, setAdmin] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [sessionReady, setSessionReady] = useState(false);
-  const [minElapsed, setMinElapsed] = useState(false);
-  const [isLeaving, setIsLeaving] = useState(false);
-  const [loaderExited, setLoaderExited] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const splashTimeoutsRef = useRef([]);
@@ -38,39 +35,55 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
     splashTimeoutsRef.current = [];
   };
 
+  const triggerSplashAnimation = (onComplete) => {
+    clearSplashTimeouts();
+    setIsExiting(false);
+    setShowSplash(true);
+
+    const exitTimer = setTimeout(() => {
+      setIsExiting(true);
+    }, 2800);
+
+    const finishTimer = setTimeout(() => {
+      setShowSplash(false);
+      try {
+        sessionStorage.setItem('rimt_loader_seen', '1');
+        document.cookie = 'rimt_loader_seen=1; path=/; SameSite=Lax';
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-rimt-loader', 'seen');
+        }
+      } catch (e) {}
+      if (typeof onComplete === 'function') onComplete();
+    }, 3200);
+
+    splashTimeoutsRef.current.push(exitTimer, finishTimer);
+  };
+
   // Synchronous client hydration on mount + background token check
   useEffect(() => {
     let isMounted = true;
 
-    let minTimer = null;
+    // Detect browser refresh (F5 / reload button) via Navigation Timing API
+    let isReload = false;
+    try {
+      if (typeof window !== 'undefined' && window.performance) {
+        const nav = window.performance.getEntriesByType?.('navigation')?.[0];
+        if (nav && nav.type === 'reload') isReload = true;
+        if (!nav && window.performance.navigation?.type === 1) isReload = true;
+      }
+    } catch (e) {}
+
+    // Clean up any stale permanent storage keys so new tabs/first visits always animate
+    try {
+      localStorage.removeItem('rimt_loader_seen');
+    } catch (e) {}
 
     const isSeen =
-      typeof window !== 'undefined' &&
-      (window.sessionStorage?.getItem('rimt_loader_seen') === '1' ||
-       document.documentElement.dataset.rimtLoader === 'seen');
-
-    if (isSeen) {
-      setMinElapsed(true);
-      setLoaderExited(true);
-    } else {
-      // Minimum display timer for first boot: clock from first-contentful-paint (1.9s or 0.8s under reduced motion)
-      const motionReduced =
-        typeof window !== 'undefined' &&
-        window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      const targetMin = motionReduced ? 800 : MIN_LOADER_MS;
-
-      const fcp = typeof performance !== 'undefined'
-        ? performance.getEntriesByName('first-contentful-paint')[0]
-        : null;
-      const sinceFirstPaint = fcp ? performance.now() - fcp.startTime : 0;
-      const wait = Math.max(0, targetMin - sinceFirstPaint);
-
-      minTimer = setTimeout(() => {
-        if (isMounted) {
-          setMinElapsed(true);
-        }
-      }, wait);
-    }
+      isReload ||
+      (typeof window !== 'undefined' &&
+       (window.sessionStorage?.getItem('rimt_loader_seen') === '1' ||
+        document.documentElement.dataset.rimtLoader === 'seen' ||
+        document.documentElement.getAttribute('data-rimt-loader') === 'seen'));
 
     // Immediately restore cached credentials in client
     try {
@@ -91,50 +104,38 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
       }
     } catch (e) {}
 
-    // On repeat visit / refresh, immediately allow content to render without waiting
+    // Client session readiness is established immediately
+    setSessionReady(true);
+
     if (isSeen) {
-      setSessionReady(true);
+      // Repeat visit or browser refresh: NO ANIMATION! Instant display without irritating user
+      setShowSplash(false);
+      try {
+        sessionStorage.setItem('rimt_loader_seen', '1');
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-rimt-loader', 'seen');
+        }
+      } catch (e) {}
+    } else {
+      // First time website open: Play the SAME TO SAME animation as the login verification
+      triggerSplashAnimation();
     }
 
-    // Check if returning from add-account page — show splash animation
-    try {
-      const showSplashForAdd = sessionStorage.getItem('rimt_show_splash_for_add');
-      if (showSplashForAdd === 'true') {
-        sessionStorage.removeItem('rimt_show_splash_for_add');
-        clearSplashTimeouts();
-        setIsExiting(false);
-        setShowSplash(true);
-
-        const exitTimer = setTimeout(() => {
-          setIsExiting(true);
-        }, 3000);
-        const finishTimer = setTimeout(() => {
-          setShowSplash(false);
-        }, 3600);
-        splashTimeoutsRef.current.push(exitTimer, finishTimer);
-      }
-    } catch (e) {}
-
+    // Silent background token check — does NOT block UI hydration or splash dismissal
     async function checkAuth() {
       try {
         const liveAdmin = await getAdminMe();
-        if (isMounted) {
-          if (liveAdmin) {
-            setAdmin((current) => {
-              if (!current || isSameAdminAccount(current, liveAdmin)) {
-                return liveAdmin;
-              }
-              return current;
-            });
-            setAccounts(getSavedAccounts());
-          }
+        if (isMounted && liveAdmin) {
+          setAdmin((current) => {
+            if (!current || isSameAdminAccount(current, liveAdmin)) {
+              return liveAdmin;
+            }
+            return current;
+          });
+          setAccounts(getSavedAccounts());
         }
       } catch (err) {
-        console.warn('Auth check error:', err);
-      } finally {
-        if (isMounted) {
-          setSessionReady(true);
-        }
+        console.warn('Auth check error (background):', err);
       }
     }
 
@@ -142,27 +143,9 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
 
     return () => {
       isMounted = false;
-      if (minTimer) clearTimeout(minTimer);
       clearSplashTimeouts();
     };
   }, []);
-
-  // Handle smooth exit fade-out when session check & minimum duration are both fulfilled
-  useEffect(() => {
-    if (sessionReady && minElapsed && !isLeaving && !loaderExited) {
-      setIsLeaving(true);
-      const fadeTimer = setTimeout(() => {
-        setLoaderExited(true);
-        if (typeof document !== 'undefined') {
-          document.documentElement.setAttribute('data-rimt-loader', 'seen');
-        }
-        try {
-          sessionStorage.setItem('rimt_loader_seen', '1');
-        } catch (e) {}
-      }, FADE_MS);
-      return () => clearTimeout(fadeTimer);
-    }
-  }, [sessionReady, minElapsed, isLeaving, loaderExited]);
 
   const handleSignOut = async () => {
     // Preserve current admin in saved accounts list on this device before signing out
@@ -170,13 +153,6 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
       saveAccountSession(admin, null);
     }
     await adminLogout();
-    try {
-      sessionStorage.removeItem(SPLASH_SHOWN_KEY);
-      sessionStorage.removeItem('rimt_loader_seen');
-      if (typeof document !== 'undefined') {
-        document.documentElement.removeAttribute('data-rimt-loader');
-      }
-    } catch (e) {}
     clearSplashTimeouts();
     setShowSplash(false);
 
@@ -246,7 +222,7 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
     setAccounts(updated);
   };
 
-  // Called when an admin logs in from AuthScreen
+  // Called when an admin logs in from AuthScreen (e.g. Raj Kumar, Sagrika, or Company)
   const handleAuthenticated = (adminData) => {
     setAdmin(adminData);
     const token = typeof window !== 'undefined' ? localStorage.getItem('rimt_admin_token') : null;
@@ -255,39 +231,19 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
     }
     setAccounts(getSavedAccounts());
 
-    clearSplashTimeouts();
-    setIsExiting(false);
-    setShowSplash(true);
-
-    try {
-      sessionStorage.setItem(SPLASH_SHOWN_KEY, 'true');
-      sessionStorage.setItem('rimt_loader_seen', '1');
-      if (typeof document !== 'undefined') {
-        document.documentElement.setAttribute('data-rimt-loader', 'seen');
-      }
-    } catch (e) {}
-
-    const exitTimer = setTimeout(() => {
-      setIsExiting(true);
-    }, 3000);
-
-    const finishTimer = setTimeout(() => {
-      setShowSplash(false);
-    }, 3600);
-
-    splashTimeoutsRef.current.push(exitTimer, finishTimer);
+    // Play the exact same verification animation sequence on login
+    triggerSplashAnimation();
   };
 
-  // Determine if underlying UI is ready to mount (only AFTER session check resolves, never before)
+  // Determine if underlying UI is ready to mount
   const isContentReady = sessionReady;
 
   return (
     <>
-      {/* Underlying content mounts as soon as session check resolves, directly under the fixed loader overlay */}
-      {isContentReady && (
-        showSplash ? (
-          <SplashVerificationScreen isExiting={isExiting} />
-        ) : !admin ? (
+      {showSplash ? (
+        <SplashVerificationScreen isExiting={isExiting} />
+      ) : isContentReady ? (
+        !admin ? (
           <AuthScreen onAuthenticated={handleAuthenticated} initialPortalType={initialPortalType} />
         ) : (
           <AdminAuthContext.Provider
@@ -305,12 +261,7 @@ export default function AuthGuard({ children, initialPortalType = 'admin' }) {
             {children}
           </AdminAuthContext.Provider>
         )
-      )}
-
-      {/* Fixed z-[9999] Session Loader Overlay — covers viewport until minElapsed, fades over FADE_MS, then unmounts */}
-      {!loaderExited && (
-        <SessionLoader leaving={isLeaving} />
-      )}
+      ) : null}
     </>
   );
 }
@@ -488,7 +439,10 @@ function SplashVerificationScreen({ isExiting }) {
               filter: 'saturate(1.9) contrast(1.22) brightness(1.04) drop-shadow(0 2px 6px rgba(139, 29, 44, 0.2))',
               imageRendering: '-webkit-optimize-contrast',
             }}
-            src="https://lh3.googleusercontent.com/aida-public/AB6AXuC19AQmgWL-gUir-ndxuF4jup3xrY5qBj64LUXlgD9RJE6IRXQl7Uw9pQ_cKLppluBw_ZpAaGrjzn9MM_33NeGwHee4byWlTWDl3k3ZH1ODJBySdYc1fAI_vX56Ks6Y_9rsUeDdfxgzgIKrwrKJRiXXd43-8bqVix0hb9h_KVy-x333S8_1qgi_MEC7mirEEZdIdmjQrVxbxQLOkTdB8x3YlxqRC5q1PzKVSKVWY-4rZfKHynQQWu8oLw4z4yUS8WIugw"
+            src="/rimt-logo.png"
+            onError={(e) => {
+              e.currentTarget.src = "https://lh3.googleusercontent.com/aida-public/AB6AXuC19AQmgWL-gUir-ndxuF4jup3xrY5qBj64LUXlgD9RJE6IRXQl7Uw9pQ_cKLppluBw_ZpAaGrjzn9MM_33NeGwHee4byWlTWDl3k3ZH1ODJBySdYc1fAI_vX56Ks6Y_9rsUeDdfxgzgIKrwrKJRiXXd43-8bqVix0hb9h_KVy-x333S8_1qgi_MEC7mirEEZdIdmjQrVxbxQLOkTdB8x3YlxqRC5q1PzKVSKVWY-4rZfKHynQQWu8oLw4z4yUS8WIugw";
+            }}
           />
         </div>
       </div>

@@ -528,10 +528,24 @@ export default function DriveManagement({ globalSearch = '' }) {
               <div className="flex items-center gap-2.5 flex-wrap">
                 <span className="flex h-2.5 w-2.5 rounded-full bg-[#ffdf9b] ring-4 ring-[#ffdf9b]/20 animate-pulse" />
                 <span className="font-label-eyebrow text-[11px] tracking-widest text-[#ffdf9b] uppercase font-bold">
-                  NEXT UPCOMING ON-CAMPUS DRIVE
+                  {nearestUpcomingDrive.category === 'COLLEGE_EVENT'
+                    ? 'NEXT UPCOMING COLLEGE EVENT / FUNCTION'
+                    : nearestUpcomingDrive.category === 'COMPETITION'
+                    ? 'NEXT UPCOMING DEPARTMENT COMPETITION'
+                    : nearestUpcomingDrive.category === 'WORKSHOP'
+                    ? 'NEXT UPCOMING TECHNICAL WORKSHOP'
+                    : 'NEXT UPCOMING ON-CAMPUS DRIVE'}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-white/10 text-white/90 border border-white/15 text-xs font-semibold backdrop-blur-md">
-                  {nearestUpcomingDrive.category === 'UNIVERSITY_EVENT' ? 'University Event' : 'Flagship Recruitment'}
+                  {nearestUpcomingDrive.category === 'COLLEGE_EVENT'
+                    ? 'College Event / Function'
+                    : nearestUpcomingDrive.category === 'COMPETITION'
+                    ? 'Competition & Contest'
+                    : nearestUpcomingDrive.category === 'WORKSHOP'
+                    ? 'Technical Workshop'
+                    : nearestUpcomingDrive.category === 'PLACEMENT_ACTIVITY'
+                    ? 'Placement Activity'
+                    : 'Flagship Recruitment'}
                 </span>
               </div>
 
@@ -553,15 +567,37 @@ export default function DriveManagement({ globalSearch = '' }) {
                     <span className="material-symbols-outlined text-base text-[#ffdf9b]">pin_drop</span>
                     {nearestUpcomingDrive.venue || nearestUpcomingDrive.meetingUrl || 'T&P Main Campus'}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-white">
-                    <span className="material-symbols-outlined text-base text-[#ffdf9b]">payments</span>
-                    {formatCtcRange(nearestUpcomingDrive.packageMinLpa, nearestUpcomingDrive.packageMaxLpa)}
-                  </span>
+                  {Boolean(nearestUpcomingDrive.packageMinLpa || nearestUpcomingDrive.packageMaxLpa) ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-white">
+                      <span className="material-symbols-outlined text-base text-[#ffdf9b]">payments</span>
+                      {formatCtcRange(nearestUpcomingDrive.packageMinLpa, nearestUpcomingDrive.packageMaxLpa)}
+                    </span>
+                  ) : nearestUpcomingDrive.category === 'COMPETITION' ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-emerald-300">
+                      <span className="material-symbols-outlined text-base text-emerald-400">emoji_events</span>
+                      Prize Challenge &amp; Certificate
+                    </span>
+                  ) : nearestUpcomingDrive.category === 'COLLEGE_EVENT' ? (
+                    <span className="inline-flex items-center gap-1.5 font-semibold text-amber-300">
+                      <span className="material-symbols-outlined text-base text-amber-400">celebration</span>
+                      Institutional Celebration Entry
+                    </span>
+                  ) : null}
                   <span className="inline-flex items-center gap-1.5 font-medium">
-                    <span className="material-symbols-outlined text-base text-[#ffdf9b]">link</span>
-                    {(nearestUpcomingDrive.registrationLinks || []).length > 0
+                    <span className="material-symbols-outlined text-base text-[#ffdf9b]">
+                      {(nearestUpcomingDrive.registrationLinks || []).some(
+                        (l) => l.url?.includes('docs.google.com') || l.url?.includes('forms.google.com')
+                      )
+                        ? 'description'
+                        : 'link'}
+                    </span>
+                    {(nearestUpcomingDrive.registrationLinks || []).some(
+                      (l) => l.url?.includes('docs.google.com') || l.url?.includes('forms.google.com')
+                    )
+                      ? 'Google Docs / Form Registration'
+                      : (nearestUpcomingDrive.registrationLinks || []).length > 0
                       ? `${nearestUpcomingDrive.registrationLinks.length} Active Link(s)`
-                      : 'External Application Form'}
+                      : 'Registration Portal'}
                   </span>
                 </div>
               </div>
@@ -908,12 +944,14 @@ export default function DriveManagement({ globalSearch = '' }) {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-9 px-2.5 bg-white/90 text-text-primary rounded-lg text-xs outline-none border border-border-subtle"
+                className="h-9 px-2.5 bg-white/90 text-text-primary rounded-lg text-xs outline-none border border-border-subtle font-medium"
                 title="Filter by category"
               >
                 <option value="ALL">All Categories</option>
                 <option value="COMPANY_RECRUITMENT">Campus Recruitment</option>
-                <option value="UNIVERSITY_EVENT">University Event</option>
+                <option value="COLLEGE_EVENT">College Event / Function</option>
+                <option value="COMPETITION">Department Competition</option>
+                <option value="WORKSHOP">Technical Workshop</option>
                 <option value="PLACEMENT_ACTIVITY">Placement Activity</option>
               </select>
 

@@ -140,7 +140,7 @@ function getMemoryCompanies() {
  * Seed initial administrative and sample student accounts
  */
 export async function initDb() {
-  if (global.__RIMT_DB_INITIALIZED) return;
+  if (global.__RIMT_DB_INITIALIZED && global.__RIMT_DB_USERS?.some((u) => u.roll_number === '26BSCCS005')) return;
 
   const adminHash = await hashPassword('Admin@123');
 
@@ -156,6 +156,104 @@ export async function initDb() {
       status: 'APPROVED',
       role: 'ADMIN',
       created_at: new Date('2026-09-01T10:00:00Z').toISOString(),
+    },
+    {
+      id: 'bcb3d144-730c-458d-8223-aa6fd72f774b',
+      name: 'Shahzeb',
+      full_name: 'Shahzeb',
+      roll_no: '26BSCCS005',
+      roll_number: '26BSCCS005',
+      department: 'Department of Cyber Security & Computing',
+      course: 'Department of Cyber Security & Computing',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.9,
+    },
+    {
+      id: '0752d62d-1ca7-47c9-bb27-fef6e8f68014',
+      name: 'Kajal',
+      full_name: 'Kajal',
+      roll_no: '26BCA035',
+      roll_number: '26BCA035',
+      department: 'Department of Computer Applications',
+      course: 'Department of Computer Applications',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.5,
+    },
+    {
+      id: 'bdc70276-f88b-4dc2-978d-d1e2cc80cc32',
+      name: 'Ismail',
+      full_name: 'Ismail',
+      roll_no: '26BCA099',
+      roll_number: '26BCA099',
+      department: 'Department of Computer Applications',
+      course: 'Department of Computer Applications',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+    },
+    {
+      id: 'cc4e258c-73f9-4661-8ba0-fbb9b3d3ebc0',
+      name: 'Prahlad',
+      full_name: 'Prahlad',
+      roll_no: '26BCA055',
+      roll_number: '26BCA055',
+      department: 'BCA',
+      course: 'BCA',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.75,
+    },
+    {
+      id: 'd5a2893b-74cf-4782-9f6f-ddb2fc690df5',
+      name: 'Sohel Ahmed',
+      full_name: 'Sohel Ahmed',
+      roll_no: 'BCA2025',
+      roll_number: 'BCA2025',
+      department: 'BCA',
+      course: 'BCA',
+      batch: '1st Year (2nd Sem)',
+      year_semester: '1st Year (2nd Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.2,
+    },
+    {
+      id: 'e91b8160-b36a-489c-8239-ccce40856361',
+      name: 'Sohel',
+      full_name: 'Sohel',
+      roll_no: '26BCA041',
+      roll_number: '26BCA041',
+      department: 'Department of Computer Applications',
+      course: 'Department of Computer Applications',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.0,
+    },
+    {
+      id: 'ef97e7ae-ce6d-44ce-b2d8-6c74e7aea682',
+      name: 'Raja',
+      full_name: 'Raja',
+      roll_no: '26BSCCS002',
+      roll_number: '26BSCCS002',
+      department: 'B.Sc Cyber Security',
+      course: 'B.Sc Cyber Security',
+      batch: '1st Year (1st Sem)',
+      year_semester: '1st Year (1st Sem)',
+      status: 'APPROVED',
+      role: 'STUDENT',
+      cgpa: 8.4,
     },
   ];
 
@@ -244,10 +342,15 @@ export async function getUserByEmail(email) {
  */
 export async function getUserByRollNo(rollNo) {
   await initDb();
-  const normalized = rollNo?.trim().toUpperCase();
+  const rawClean = rollNo ? String(rollNo).trim().toUpperCase() : '';
+  const noSpaceClean = rawClean.replace(/\s+/g, '');
+
   const inMem = getMemoryUsers().find((u) => {
     const candidateRolls = [u.roll_number, u.roll_no, u.rollNumber];
-    return candidateRolls.some((value) => String(value || '').trim().toUpperCase() === normalized);
+    return candidateRolls.some((value) => {
+      const c = String(value || '').trim().toUpperCase();
+      return c === rawClean || c.replace(/\s+/g, '') === noSpaceClean;
+    });
   });
   if (inMem) return inMem;
 
@@ -255,9 +358,10 @@ export async function getUserByRollNo(rollNo) {
 
   try {
     const candidates = [
-      `${SUPABASE_URL}/rest/v1/students?roll_no=ilike.${encodeURIComponent(normalized)}&select=*`,
-      `${SUPABASE_URL}/rest/v1/students?roll_number=ilike.${encodeURIComponent(normalized)}&select=*`,
-      `${SUPABASE_URL}/rest/v1/students?or=(roll_no.ilike.${encodeURIComponent(normalized)},roll_number.ilike.${encodeURIComponent(normalized)})&select=*`,
+      `${SUPABASE_URL}/rest/v1/students?roll_no=ilike.${encodeURIComponent(noSpaceClean)}&select=*`,
+      `${SUPABASE_URL}/rest/v1/students?roll_number=ilike.${encodeURIComponent(noSpaceClean)}&select=*`,
+      `${SUPABASE_URL}/rest/v1/students?or=(roll_no.ilike.${encodeURIComponent(noSpaceClean)},roll_number.ilike.${encodeURIComponent(noSpaceClean)})&select=*`,
+      `${SUPABASE_URL}/rest/v1/students?roll_no=ilike.${encodeURIComponent(rawClean)}&select=*`,
     ];
 
     for (const url of candidates) {
@@ -781,7 +885,7 @@ export async function getStudentDocuments(rollNo, studentId, studentData) {
           });
         });
       }
-    } catch {}
+    } catch { }
   }
 
   // 2. Also check if studentData has a verified resume_url (ignore dummy unsplash images)
@@ -951,7 +1055,7 @@ export async function getStudentDossier(idOrRoll) {
     try {
       const parsed = JSON.parse(student.projects);
       if (Array.isArray(parsed)) realProjects = parsed;
-    } catch {}
+    } catch { }
   }
 
   // Also query student_projects table if student.id is available
@@ -1051,7 +1155,7 @@ export async function getStudentDossier(idOrRoll) {
     try {
       const parsed = JSON.parse(student.semester_scores);
       if (Array.isArray(parsed)) semesterScores = parsed;
-    } catch {}
+    } catch { }
   }
 
   // Real skills from DB
@@ -1083,7 +1187,7 @@ export async function getStudentDossier(idOrRoll) {
     try {
       const parsed = JSON.parse(student.internships);
       if (Array.isArray(parsed)) realInternships = parsed;
-    } catch {}
+    } catch { }
   }
   if (student.admin_notes) {
     try {
@@ -1097,7 +1201,7 @@ export async function getStudentDossier(idOrRoll) {
           }
         });
       }
-    } catch {}
+    } catch { }
   }
 
   return {
@@ -1214,7 +1318,7 @@ export async function updateStudentDossier(id, updates) {
         if (student.admin_notes) {
           notesPayload = JSON.parse(student.admin_notes);
         }
-      } catch {}
+      } catch { }
       if (!notesPayload || typeof notesPayload !== 'object') notesPayload = {};
 
       if (updates.certificates !== undefined) notesPayload.certificates = updates.certificates;
@@ -1353,17 +1457,29 @@ export async function getAdminByEmail(email) {
   await initAdminDb();
   const normalized = email.trim().toLowerCase();
 
+  // 1. Fast in-memory lookup (0ms, seeded admins, preserves password_hash)
+  const found = getMemoryAdmins().find(
+    (a) => a.email && a.email.toLowerCase() === normalized
+  );
+  if (found) return { ...found };
+
+  // 2. Fallback to Supabase only if not in memory
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/admins?email=ilike.${encodeURIComponent(normalized)}&select=*`,
+        `${SUPABASE_URL}/rest/v1/admins?email=ilike.${encodeURIComponent(normalized)}&select=id,full_name,email,role,status,profile_pic_url,created_at,updated_at`,
         {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
         }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
+          const memoryAdmins = getMemoryAdmins();
+          if (!memoryAdmins.some((a) => a.id === data[0].id)) {
+            memoryAdmins.push({ ...data[0] });
+          }
           return data[0];
         }
       }
@@ -1372,10 +1488,7 @@ export async function getAdminByEmail(email) {
     }
   }
 
-  const found = getMemoryAdmins().find(
-    (a) => a.email && a.email.toLowerCase() === normalized
-  );
-  return found ? { ...found } : null;
+  return null;
 }
 
 /**
@@ -1386,18 +1499,29 @@ export async function getAdminByName(name) {
   await initAdminDb();
   const normalized = name.trim().toLowerCase();
 
-  // Try Supabase first
+  // 1. Fast in-memory lookup (0ms, seeded admins, preserves password_hash for authentication)
+  const found = getMemoryAdmins().find(
+    (a) => a.full_name && a.full_name.toLowerCase() === normalized
+  );
+  if (found) return { ...found };
+
+  // 2. Fallback to Supabase only if not in memory
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/admins?full_name=ilike.${encodeURIComponent(normalized)}&select=*`,
+        `${SUPABASE_URL}/rest/v1/admins?full_name=ilike.${encodeURIComponent(normalized)}&select=id,full_name,email,role,status,profile_pic_url,created_at,updated_at`,
         {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
         }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
+          const memoryAdmins = getMemoryAdmins();
+          if (!memoryAdmins.some((a) => a.id === data[0].id)) {
+            memoryAdmins.push({ ...data[0] });
+          }
           return data[0];
         }
       }
@@ -1406,11 +1530,7 @@ export async function getAdminByName(name) {
     }
   }
 
-  // Fallback to in-memory store
-  const found = getMemoryAdmins().find(
-    (a) => a.full_name && a.full_name.toLowerCase() === normalized
-  );
-  return found ? { ...found } : null;
+  return null;
 }
 
 /**
@@ -1420,17 +1540,27 @@ export async function getAdminById(id) {
   if (!id) return null;
   await initAdminDb();
 
+  // 1. Fast in-memory lookup (0ms, eliminates 1500ms remote timeout on every middleware verification)
+  const found = getMemoryAdmins().find((a) => a.id === id);
+  if (found) return { ...found };
+
+  // 2. Fallback to Supabase only if not in memory
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/admins?id=eq.${encodeURIComponent(id)}&select=*`,
+        `${SUPABASE_URL}/rest/v1/admins?id=eq.${encodeURIComponent(id)}&select=id,full_name,email,role,status,profile_pic_url,created_at,updated_at`,
         {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
         }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
+          const memoryAdmins = getMemoryAdmins();
+          if (!memoryAdmins.some((a) => a.id === data[0].id)) {
+            memoryAdmins.push({ ...data[0] });
+          }
           return data[0];
         }
       }
@@ -1439,8 +1569,7 @@ export async function getAdminById(id) {
     }
   }
 
-  const found = getMemoryAdmins().find((a) => a.id === id);
-  return found ? { ...found } : null;
+  return null;
 }
 
 export async function createAdmin(adminData) {
@@ -2277,7 +2406,7 @@ export async function getAllStudentInternships() {
       try {
         const parsed = JSON.parse(student.internships);
         if (Array.isArray(parsed)) studentInternships = parsed;
-      } catch {}
+      } catch { }
     }
     if (student.admin_notes) {
       try {
@@ -2285,7 +2414,7 @@ export async function getAllStudentInternships() {
         if (Array.isArray(parsedNotes?.internships)) {
           studentInternships = [...studentInternships, ...parsedNotes.internships];
         }
-      } catch {}
+      } catch { }
     }
 
     for (const intern of studentInternships) {
@@ -2700,62 +2829,76 @@ export async function getCompanyByEmail(email) {
   await initCompanyDb();
   const normalized = email.trim().toLowerCase();
 
+  // 1. Fast in-memory lookup (0ms, seeded companies, preserves credentials)
+  const found = getMemoryCompanies().find(
+    (c) => c.email && c.email.toLowerCase() === normalized
+  );
+  if (found) return { ...found };
+
+  // 2. Fallback to Supabase only if not in memory
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/companies?email=ilike.${encodeURIComponent(normalized)}&select=*`,
         {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
         }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
-          return {
-            ...data[0],
-            role: 'COMPANY',
-          };
+          const comp = { ...data[0], role: 'COMPANY' };
+          const memoryCompanies = getMemoryCompanies();
+          if (!memoryCompanies.some((c) => c.id === comp.id)) {
+            memoryCompanies.push(comp);
+          }
+          return comp;
         }
       }
     } catch (err) {
-      console.warn('Supabase getCompanyByEmail error:', err.message);
+      console.warn('Supabase getCompanyByEmail error, falling back to memory:', err.message);
     }
   }
 
-  const found = getMemoryCompanies().find(
-    (c) => c.email && c.email.toLowerCase() === normalized
-  );
-  return found ? { ...found } : null;
+  return null;
 }
 
 export async function getCompanyById(id) {
   if (!id) return null;
   await initCompanyDb();
 
+  // 1. Fast in-memory lookup (0ms, seeded companies)
+  const found = getMemoryCompanies().find((c) => c.id === id);
+  if (found) return { ...found };
+
+  // 2. Fallback to Supabase only if not in memory
   if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
     try {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/companies?id=eq.${encodeURIComponent(id)}&select=*`,
         {
           headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+          signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
         }
       );
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data[0]) {
-          return {
-            ...data[0],
-            role: 'COMPANY',
-          };
+          const comp = { ...data[0], role: 'COMPANY' };
+          const memoryCompanies = getMemoryCompanies();
+          if (!memoryCompanies.some((c) => c.id === comp.id)) {
+            memoryCompanies.push(comp);
+          }
+          return comp;
         }
       }
     } catch (err) {
-      console.warn('Supabase getCompanyById error:', err.message);
+      console.warn('Supabase getCompanyById error, falling back to memory:', err.message);
     }
   }
 
-  const found = getMemoryCompanies().find((c) => c.id === id);
-  return found ? { ...found } : null;
+  return null;
 }
 
 export async function createCompany({
@@ -2820,3 +2963,868 @@ export async function getAllCompanies() {
   await initCompanyDb();
   return getMemoryCompanies();
 }
+
+// ====================================================================
+// PLACEMENT DRIVES & UNIVERSITY EVENTS
+// ====================================================================
+
+if (!global.__RIMT_DB_PLACEMENT_DRIVES || !global.__RIMT_DB_PLACEMENT_DRIVES[0]?.customForm) {
+  global.__RIMT_DB_PLACEMENT_DRIVES = [
+    {
+      id: 'drive_lt_2026',
+      title: 'Larsen & Toubro Ltd — Campus Recruitment Drive',
+      category: 'COMPANY_RECRUITMENT',
+      companyName: 'Larsen & Toubro Ltd',
+      roleTitle: 'Graduate Engineer Trainee (GET) & Software Engineer',
+      description: 'Larsen & Toubro is conducting an exclusive on-campus recruitment drive for BCA, MCA, and B.Sc Computer Science scholars. The selection pipeline includes Online Aptitude, Technical viva, and Leadership HR interview.',
+      mode: 'On-campus',
+      venue: 'Auditorium 1 & Systems Lab 4',
+      startsAt: new Date(Date.now() + 5 * 24 * 3600 * 1000).toISOString(),
+      endsAt: new Date(Date.now() + 5 * 24 * 3600 * 1000 + 6 * 3600 * 1000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString(),
+      packageMinLpa: 7.5,
+      packageMaxLpa: 13.5,
+      eligibility: {
+        departments: ['BCA', 'B.Sc Cyber Security', 'B.Sc IT'],
+        batches: ['3rd Year (5th Sem)', '3rd Year (6th Sem)'],
+        minCgpa: 6.5,
+        maxBacklogs: 0,
+        notes: 'Minimum 60% aggregate across 10th and 12th standards.',
+      },
+      rounds: [
+        { name: '1. Online Technical Assessment' },
+        { name: '2. Technical Viva & Code Review' },
+        { name: '3. Senior Leadership HR' },
+      ],
+      spoc: {
+        name: 'Er. Sandeep Mittal',
+        email: 'campus.lt@rimt.ac.in',
+        phone: '+91 98765 43210',
+        organisation: 'L&T Corporate HR',
+      },
+      status: 'PUBLISHED',
+      registrationLinks: [
+        {
+          id: 'link_lt_google_docs',
+          label: 'Official Google Form / Docs Registration',
+          url: 'https://docs.google.com/forms/d/e/1FAIpQLSc_ExampleLTForm/viewform',
+          opensAt: null,
+          closesAt: null,
+          enabled: true,
+        },
+      ],
+      customForm: [
+        {
+          id: 'lt_q1',
+          key: 'bca_aggregate_cgpa',
+          label: 'Current Degree Aggregate CGPA',
+          type: 'number',
+          required: true,
+          helpText: 'Minimum 6.5 aggregate required for screening',
+        },
+        {
+          id: 'lt_q2',
+          key: 'primary_skills',
+          label: 'Primary Technical Skills',
+          type: 'checkbox',
+          required: true,
+          options: ['Java / Spring Boot', 'React / React Native', 'Python / Django', 'SQL / Databases', 'Cloud & DevOps'],
+        },
+        {
+          id: 'lt_q3',
+          key: 'preferred_location',
+          label: 'Preferred Work Location',
+          type: 'radio',
+          required: true,
+          options: ['Noida / NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Flexible'],
+        },
+        {
+          id: 'lt_q4',
+          key: 'portfolio_url',
+          label: 'GitHub / Portfolio URL',
+          type: 'text',
+          required: false,
+          helpText: 'Link to your open-source projects or portfolio (optional)',
+        },
+      ],
+      formSchema: [
+        {
+          id: 'lt_q1',
+          key: 'bca_aggregate_cgpa',
+          label: 'Current Degree Aggregate CGPA',
+          type: 'number',
+          required: true,
+          helpText: 'Minimum 6.5 aggregate required for screening',
+        },
+        {
+          id: 'lt_q2',
+          key: 'primary_skills',
+          label: 'Primary Technical Skills',
+          type: 'checkbox',
+          required: true,
+          options: ['Java / Spring Boot', 'React / React Native', 'Python / Django', 'SQL / Databases', 'Cloud & DevOps'],
+        },
+        {
+          id: 'lt_q3',
+          key: 'preferred_location',
+          label: 'Preferred Work Location',
+          type: 'radio',
+          required: true,
+          options: ['Noida / NCR', 'Bengaluru', 'Pune', 'Hyderabad', 'Flexible'],
+        },
+        {
+          id: 'lt_q4',
+          key: 'portfolio_url',
+          label: 'GitHub / Portfolio URL',
+          type: 'text',
+          required: false,
+          helpText: 'Link to your open-source projects or portfolio (optional)',
+        },
+      ],
+      announcements: [
+        {
+          id: 'ann_lt_1',
+          type: 'ELIGIBILITY',
+          title: 'Aptitude & Technical Coding Pattern Released',
+          message: 'All eligible candidates are requested to complete their resume updates and practice on the mock portal.',
+          priority: 'HIGH',
+          publishedAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+          publishedBy: 'Dean T&P Office',
+        },
+      ],
+      results: [],
+      notifications: [],
+      createdAt: new Date(Date.now() - 3600 * 1000 * 24).toISOString(),
+      updatedAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
+    },
+    {
+      id: 'drive_carva_freshers_2026',
+      title: 'Carva Celebration for Freshers 2026 & Department Talent Hunt',
+      category: 'COLLEGE_EVENT',
+      companyName: 'Department of Computer Applications & Cultural Committee',
+      roleTitle: 'Annual Freshers Celebration, Stage Performances & Technical Showcase',
+      description: 'University Department Annual Event: Carva Celebration for 1st-year scholars. Includes cultural performances, technical project showcase, Mr. & Ms. Fresher contest, and institutional honors. All department students must register their entries.',
+      mode: 'On-campus',
+      venue: 'RIMT Central Auditorium & Campus Lawns',
+      startsAt: new Date(Date.now() + 8 * 24 * 3600 * 1000).toISOString(),
+      endsAt: new Date(Date.now() + 8 * 24 * 3600 * 1000 + 8 * 3600 * 1000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 6 * 24 * 3600 * 1000).toISOString(),
+      packageMinLpa: null,
+      packageMaxLpa: null,
+      eligibility: {
+        departments: ['BCA', 'B.Sc Cyber Security', 'B.Sc IT', 'B.Sc (Hons) AI & ML'],
+        batches: ['1st Year (1st Sem)', '2nd Year (3rd Sem)', '3rd Year (5th Sem)'],
+        minCgpa: null,
+        maxBacklogs: null,
+        notes: 'Open to all enrolled students of Computer Applications.',
+      },
+      rounds: [
+        { name: '1. Entry Registration' },
+        { name: '2. Audition & Stage Rehearsal' },
+        { name: '3. Grand Gala Presentation' },
+      ],
+      spoc: {
+        name: 'Prof. Anjali Sharma',
+        email: 'cultural.bca@rimt.ac.in',
+        phone: '+91 98141 55667',
+        organisation: 'BCA Cultural Committee',
+      },
+      status: 'PUBLISHED',
+      registrationLinks: [
+        {
+          id: 'link_carva_google_docs',
+          label: 'Carva Freshers Google Docs Registration Link',
+          url: 'https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit?usp=sharing',
+          opensAt: null,
+          closesAt: null,
+          enabled: true,
+        },
+      ],
+      customForm: [
+        {
+          id: 'carva_q1',
+          key: 'event_entry_type',
+          label: 'Event Category / Talent Entry',
+          type: 'select',
+          required: true,
+          options: ['Singing (Solo / Duet)', 'Dance (Solo / Crew)', 'Technical Project Showcase', 'Mr. / Ms. Fresher Contest', 'Skit / Stand-up Comedy', 'Volunteering & Stage Coordination'],
+        },
+        {
+          id: 'carva_q2',
+          key: 'team_members',
+          label: 'Group / Team Members (if applicable)',
+          type: 'text',
+          required: false,
+          helpText: 'List names and roll numbers of co-performers',
+        },
+        {
+          id: 'carva_q3',
+          key: 'equipment_needs',
+          label: 'Stage / AV Audio Requirements',
+          type: 'textarea',
+          required: false,
+          helpText: 'Mention mics, instruments, background track USB, or stage props needed',
+        },
+      ],
+      formSchema: [
+        {
+          id: 'carva_q1',
+          key: 'event_entry_type',
+          label: 'Event Category / Talent Entry',
+          type: 'select',
+          required: true,
+          options: ['Singing (Solo / Duet)', 'Dance (Solo / Crew)', 'Technical Project Showcase', 'Mr. / Ms. Fresher Contest', 'Skit / Stand-up Comedy', 'Volunteering & Stage Coordination'],
+        },
+        {
+          id: 'carva_q2',
+          key: 'team_members',
+          label: 'Group / Team Members (if applicable)',
+          type: 'text',
+          required: false,
+          helpText: 'List names and roll numbers of co-performers',
+        },
+        {
+          id: 'carva_q3',
+          key: 'equipment_needs',
+          label: 'Stage / AV Audio Requirements',
+          type: 'textarea',
+          required: false,
+          helpText: 'Mention mics, instruments, background track USB, or stage props needed',
+        },
+      ],
+      announcements: [],
+      results: [],
+      notifications: [],
+      createdAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
+      updatedAt: new Date(Date.now() - 3600 * 1000 * 12).toISOString(),
+    },
+    {
+      id: 'drive_hackathon_2026',
+      title: 'RIMT Cyber Hackathon & Innovation Contest 2026',
+      category: 'COMPETITION',
+      companyName: 'Cyber Security & Computing Club (RIMT Trust)',
+      roleTitle: '24-Hour Rapid Prototyping & AI Security Challenge',
+      description: 'Department competition targeting cutting-edge AI security, secure coding, and cloud deployments. Cash prize pool of ₹50,000 for top 3 teams. Certified by NAAC / IEEE Student Branch.',
+      mode: 'Hybrid',
+      venue: 'Systems Innovation Lab 2 & Virtual Portal',
+      startsAt: new Date(Date.now() + 12 * 24 * 3600 * 1000).toISOString(),
+      endsAt: new Date(Date.now() + 13 * 24 * 3600 * 1000).toISOString(),
+      registrationDeadline: new Date(Date.now() + 10 * 24 * 3600 * 1000).toISOString(),
+      packageMinLpa: null,
+      packageMaxLpa: null,
+      eligibility: {
+        departments: ['BCA', 'B.Sc Cyber Security', 'B.Sc IT'],
+        batches: ['1st Year (2nd Sem)', '2nd Year (3rd Sem)', '2nd Year (4th Sem)', '3rd Year (5th Sem)'],
+        minCgpa: 6.0,
+        maxBacklogs: 2,
+        notes: 'Teams of 2 to 4 members.',
+      },
+      rounds: [
+        { name: '1. Idea Abstract Submission' },
+        { name: '2. 24-Hour Prototype Build' },
+        { name: '3. Jury Evaluation & Award Ceremony' },
+      ],
+      spoc: {
+        name: 'Dr. R. K. Vashisht',
+        email: 'hackathon@rimt.ac.in',
+        phone: '+91 97800 11223',
+        organisation: 'Innovation Cell RIMT',
+      },
+      status: 'PUBLISHED',
+      registrationLinks: [
+        {
+          id: 'link_hackathon_google_docs',
+          label: 'Hackathon Team Google Docs Entry Form',
+          url: 'https://docs.google.com/forms/d/e/1FAIpQLSc_ExampleHackathon/viewform',
+          opensAt: null,
+          closesAt: null,
+          enabled: true,
+        },
+      ],
+      customForm: [
+        {
+          id: 'hack_q1',
+          key: 'team_name',
+          label: 'Team Name',
+          type: 'text',
+          required: true,
+          helpText: 'Official team name for leaderboard',
+        },
+        {
+          id: 'hack_q2',
+          key: 'team_size',
+          label: 'Team Size',
+          type: 'select',
+          required: true,
+          options: ['Solo Participant', '2 Members', '3 Members', '4 Members (Maximum)'],
+        },
+        {
+          id: 'hack_q3',
+          key: 'problem_statement_track',
+          label: 'Preferred Challenge Track',
+          type: 'radio',
+          required: true,
+          options: ['AI & Autonomous Agents', 'Cloud Security & Zero-Trust', 'Next-Gen Mobile / Web Platform', 'Open Innovation'],
+        },
+        {
+          id: 'hack_q4',
+          key: 'idea_abstract',
+          label: 'Proposed Solution Abstract',
+          type: 'textarea',
+          required: true,
+          helpText: 'Brief summary of the concept and intended architecture',
+        },
+      ],
+      formSchema: [
+        {
+          id: 'hack_q1',
+          key: 'team_name',
+          label: 'Team Name',
+          type: 'text',
+          required: true,
+          helpText: 'Official team name for leaderboard',
+        },
+        {
+          id: 'hack_q2',
+          key: 'team_size',
+          label: 'Team Size',
+          type: 'select',
+          required: true,
+          options: ['Solo Participant', '2 Members', '3 Members', '4 Members (Maximum)'],
+        },
+        {
+          id: 'hack_q3',
+          key: 'problem_statement_track',
+          label: 'Preferred Challenge Track',
+          type: 'radio',
+          required: true,
+          options: ['AI & Autonomous Agents', 'Cloud Security & Zero-Trust', 'Next-Gen Mobile / Web Platform', 'Open Innovation'],
+        },
+        {
+          id: 'hack_q4',
+          key: 'idea_abstract',
+          label: 'Proposed Solution Abstract',
+          type: 'textarea',
+          required: true,
+          helpText: 'Brief summary of the concept and intended architecture',
+        },
+      ],
+      announcements: [],
+      results: [],
+      notifications: [],
+      createdAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
+      updatedAt: new Date(Date.now() - 3600 * 1000 * 48).toISOString(),
+    },
+  ];
+}
+
+if (!global.__RIMT_DB_DRIVE_REGISTRATIONS) {
+  global.__RIMT_DB_DRIVE_REGISTRATIONS = [
+    {
+      id: 'reg_demo_01',
+      drive_id: 'drive_carva_freshers_2026',
+      student_name: 'Shazaeb Khan',
+      roll_no: '2201944',
+      email: 'shazaeb@rimt.ac.in',
+      phone: '+91 98765 01234',
+      department: 'BCA (Cyber Security & Computing)',
+      semester: '3rd Year (5th Sem)',
+      cgpa: 8.5,
+      registration_source: 'mobile_app',
+      status: 'REGISTERED',
+      registered_at: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
+    },
+    {
+      id: 'reg_demo_02',
+      drive_id: 'drive_lt_2026',
+      student_name: 'Shazaeb Khan',
+      roll_no: '2201944',
+      email: 'shazaeb@rimt.ac.in',
+      phone: '+91 98765 01234',
+      department: 'BCA (Cyber Security & Computing)',
+      semester: '3rd Year (5th Sem)',
+      cgpa: 8.5,
+      registration_source: 'mobile_app',
+      status: 'REGISTERED',
+      registered_at: new Date(Date.now() - 3600 * 1000 * 3).toISOString(),
+    },
+    {
+      id: 'reg_demo_03',
+      drive_id: 'drive_carva_freshers_2026',
+      student_name: 'Amanpreet Singh',
+      roll_no: '2201901',
+      email: 'amanpreet@rimt.ac.in',
+      phone: '+91 98123 45678',
+      department: 'BCA',
+      semester: '3rd Year (5th Sem)',
+      cgpa: 7.9,
+      registration_source: 'mobile_app',
+      status: 'REGISTERED',
+      registered_at: new Date(Date.now() - 3600 * 1000 * 1).toISOString(),
+    },
+  ];
+}
+
+function normalizeDriveRecord(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category || 'COMPANY_RECRUITMENT',
+    companyName: row.company_name || row.companyName || '',
+    roleTitle: row.role_title || row.roleTitle || '',
+    description: row.description || '',
+    mode: row.mode || 'On-campus',
+    venue: row.venue || '',
+    meetingUrl: row.meeting_url || row.meetingUrl || '',
+    startsAt: row.starts_at || row.startsAt || null,
+    endsAt: row.ends_at || row.endsAt || null,
+    registrationDeadline: row.registration_deadline || row.registrationDeadline || null,
+    packageMinLpa: row.package_min_lpa !== undefined ? Number(row.package_min_lpa) : row.packageMinLpa ?? null,
+    packageMaxLpa: row.package_max_lpa !== undefined ? Number(row.package_max_lpa) : row.packageMaxLpa ?? null,
+    eligibility: typeof row.eligibility === 'string' ? JSON.parse(row.eligibility) : (row.eligibility || {}),
+    rounds: typeof row.rounds === 'string' ? JSON.parse(row.rounds) : (row.rounds || []),
+    spoc: typeof row.spoc === 'string' ? JSON.parse(row.spoc) : (row.spoc || {}),
+    status: row.status || 'PUBLISHED',
+    registrationLinks: typeof row.registration_links === 'string' ? JSON.parse(row.registration_links) : (row.registration_links || row.registrationLinks || []),
+    customForm: typeof row.custom_form === 'string' ? JSON.parse(row.custom_form) : (row.custom_form || row.customForm || row.form_schema || row.formSchema || []),
+    formSchema: typeof row.form_schema === 'string' ? JSON.parse(row.form_schema) : (row.form_schema || row.formSchema || row.custom_form || row.customForm || []),
+    announcements: typeof row.announcements === 'string' ? JSON.parse(row.announcements) : (row.announcements || []),
+    results: typeof row.results === 'string' ? JSON.parse(row.results) : (row.results || []),
+    notifications: typeof row.notifications === 'string' ? JSON.parse(row.notifications) : (row.notifications || []),
+    createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
+  };
+}
+
+export async function getPlacementDrives() {
+  let list = [];
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/placement_drives?select=*&order=starts_at.asc`, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          list = rows.map(normalizeDriveRecord);
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getPlacementDrives fallback to memory store:', e.message);
+    }
+  }
+
+  if (list.length === 0) {
+    list = global.__RIMT_DB_PLACEMENT_DRIVES.map(normalizeDriveRecord);
+  }
+
+  return list;
+}
+
+export async function createPlacementDrive(drivePayload) {
+  // Generate clean slug for direct registration links
+  const baseTitle = (drivePayload.title || drivePayload.companyName || 'drive')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+  const slug = drivePayload.slug || `${baseTitle || 'drive'}-${Math.random().toString(36).substr(2, 5)}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const officialFormLink = `${appUrl}/drives/${slug}`;
+
+  // Ensure official form registration link is present in registrationLinks
+  let regLinks = Array.isArray(drivePayload.registrationLinks) ? [...drivePayload.registrationLinks] : [];
+  const hasOfficialLink = regLinks.some((l) => l.isOfficialForm || (l.url && l.url.includes('/drives/')));
+  if (!hasOfficialLink) {
+    regLinks = [
+      {
+        id: `link_official_${slug}`,
+        label: 'Official Student Registration Form (Web & App)',
+        url: officialFormLink,
+        isOfficialForm: true,
+        opensAt: drivePayload.startsAt || new Date().toISOString(),
+        closesAt: drivePayload.registrationDeadline || null,
+        enabled: true,
+      },
+      ...regLinks,
+    ];
+  }
+
+  const customFormSchema = drivePayload.customForm || drivePayload.formSchema || [
+    {
+      id: `f_${Date.now()}_1`,
+      key: 'skills',
+      label: 'Primary Skills / Tech Stack',
+      type: 'text',
+      required: true,
+      helpText: 'e.g. React Native, Node.js, Python, SQL',
+      options: [],
+    },
+    {
+      id: `f_${Date.now()}_2`,
+      key: 'statement_of_purpose',
+      label: 'Why do you want to participate in this event / drive?',
+      type: 'textarea',
+      required: false,
+      helpText: 'Briefly state your motivation or relevant project experience (optional)',
+      options: [],
+    },
+  ];
+
+  const newDrive = {
+    id: drivePayload.id || `drive_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    slug,
+    title: drivePayload.title || '',
+    category: drivePayload.category || 'COMPANY_RECRUITMENT',
+    companyName: drivePayload.companyName || '',
+    roleTitle: drivePayload.roleTitle || '',
+    description: drivePayload.description || '',
+    mode: drivePayload.mode || 'On-campus',
+    venue: drivePayload.venue || '',
+    meetingUrl: drivePayload.meetingUrl || '',
+    startsAt: drivePayload.startsAt || null,
+    endsAt: drivePayload.endsAt || null,
+    registrationDeadline: drivePayload.registrationDeadline || null,
+    packageMinLpa: drivePayload.packageMinLpa ? Number(drivePayload.packageMinLpa) : null,
+    packageMaxLpa: drivePayload.packageMaxLpa ? Number(drivePayload.packageMaxLpa) : null,
+    eligibility: drivePayload.eligibility || {
+      departments: ['BCA'],
+      batches: ['3rd Year (5th Sem)'],
+      minCgpa: 6.5,
+      maxBacklogs: 0,
+      notes: '',
+    },
+    rounds: drivePayload.rounds || [
+      { name: '1. Online Assessment' },
+      { name: '2. Technical Interview' },
+      { name: '3. Final HR Assessment' },
+    ],
+    spoc: drivePayload.spoc || { name: '', email: '', phone: '', organisation: '' },
+    status: drivePayload.status || 'PUBLISHED',
+    registrationLinks: regLinks,
+    customForm: customFormSchema,
+    formSchema: customFormSchema,
+    announcements: drivePayload.announcements || [],
+    results: drivePayload.results || [],
+    notifications: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  // Prepend to memory store
+  global.__RIMT_DB_PLACEMENT_DRIVES = [newDrive, ...global.__RIMT_DB_PLACEMENT_DRIVES];
+
+  // Try saving to Supabase
+  const writeHeaders = getAdminWriteHeaders();
+  if (writeHeaders && HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const dbRow = {
+        id: newDrive.id,
+        slug: newDrive.slug,
+        title: newDrive.title,
+        category: newDrive.category,
+        company_name: newDrive.companyName,
+        role_title: newDrive.roleTitle,
+        description: newDrive.description,
+        mode: newDrive.mode,
+        venue: newDrive.venue,
+        meeting_url: newDrive.meetingUrl,
+        starts_at: newDrive.startsAt,
+        ends_at: newDrive.endsAt,
+        registration_deadline: newDrive.registrationDeadline,
+        package_min_lpa: newDrive.packageMinLpa,
+        package_max_lpa: newDrive.packageMaxLpa,
+        eligibility: newDrive.eligibility,
+        rounds: newDrive.rounds,
+        spoc: newDrive.spoc,
+        status: newDrive.status,
+        registration_links: newDrive.registrationLinks,
+        custom_form: newDrive.customForm,
+        form_schema: newDrive.formSchema,
+        announcements: newDrive.announcements,
+        results: newDrive.results,
+        notifications: newDrive.notifications,
+      };
+
+      await fetch(`${SUPABASE_URL}/rest/v1/placement_drives`, {
+        method: 'POST',
+        headers: writeHeaders,
+        body: JSON.stringify(dbRow),
+      });
+    } catch (err) {
+      console.warn('Supabase placement_drives write notice:', err.message);
+    }
+  }
+
+  // Also dispatch notification to Supabase notifications table if published
+  if (newDrive.status === 'PUBLISHED') {
+    try {
+      await dispatchDriveNotification({
+        driveId: newDrive.id,
+        title: `Campus Recruitment Drive: ${newDrive.title}`,
+        body: `Official registration form is now live for ${newDrive.companyName || newDrive.title}. Open the form in your app to review requirements and register.`,
+        drive: newDrive,
+      });
+    } catch (err) {
+      console.warn('dispatchDriveNotification notice:', err?.message || err);
+    }
+  }
+
+  return newDrive;
+}
+
+export async function updatePlacementDrive(id, updates) {
+  const drives = global.__RIMT_DB_PLACEMENT_DRIVES;
+  const index = drives.findIndex((d) => d.id === id);
+  if (index === -1) {
+    return null;
+  }
+
+  const previousStatus = drives[index].status;
+  const slug = drives[index].slug || updates.slug || `${(updates.title || drives[index].title || 'drive').toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 32)}-${Math.random().toString(36).substr(2, 5)}`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const officialFormLink = `${appUrl}/drives/${slug}`;
+
+  // Ensure registrationLinks contains official link
+  let updatedRegLinks = updates.registrationLinks !== undefined ? updates.registrationLinks : drives[index].registrationLinks || [];
+  if (Array.isArray(updatedRegLinks)) {
+    const hasOfficial = updatedRegLinks.some((l) => l.isOfficialForm || (l.url && l.url.includes('/drives/')));
+    if (!hasOfficial) {
+      updatedRegLinks = [
+        {
+          id: `link_official_${slug}`,
+          label: 'Official Student Registration Form (Web & App)',
+          url: officialFormLink,
+          isOfficialForm: true,
+          opensAt: updates.startsAt || drives[index].startsAt || new Date().toISOString(),
+          closesAt: updates.registrationDeadline || drives[index].registrationDeadline || null,
+          enabled: true,
+        },
+        ...updatedRegLinks,
+      ];
+    }
+  }
+
+  const updated = {
+    ...drives[index],
+    ...updates,
+    slug,
+    registrationLinks: updatedRegLinks,
+    updatedAt: new Date().toISOString(),
+  };
+  drives[index] = updated;
+
+  const writeHeaders = getAdminWriteHeaders();
+  if (writeHeaders && HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const dbRow = { slug };
+      if (updates.title !== undefined) dbRow.title = updates.title;
+      if (updates.category !== undefined) dbRow.category = updates.category;
+      if (updates.companyName !== undefined) dbRow.company_name = updates.companyName;
+      if (updates.roleTitle !== undefined) dbRow.role_title = updates.roleTitle;
+      if (updates.description !== undefined) dbRow.description = updates.description;
+      if (updates.mode !== undefined) dbRow.mode = updates.mode;
+      if (updates.venue !== undefined) dbRow.venue = updates.venue;
+      if (updates.meetingUrl !== undefined) dbRow.meeting_url = updates.meetingUrl;
+      if (updates.startsAt !== undefined) dbRow.starts_at = updates.startsAt;
+      if (updates.endsAt !== undefined) dbRow.ends_at = updates.endsAt;
+      if (updates.registrationDeadline !== undefined) dbRow.registration_deadline = updates.registrationDeadline;
+      if (updates.packageMinLpa !== undefined) dbRow.package_min_lpa = updates.packageMinLpa;
+      if (updates.packageMaxLpa !== undefined) dbRow.package_max_lpa = updates.packageMaxLpa;
+      if (updates.eligibility !== undefined) dbRow.eligibility = updates.eligibility;
+      if (updates.rounds !== undefined) dbRow.rounds = updates.rounds;
+      if (updates.spoc !== undefined) dbRow.spoc = updates.spoc;
+      if (updates.status !== undefined) dbRow.status = updates.status;
+      dbRow.registration_links = updatedRegLinks;
+      if (updates.customForm !== undefined) dbRow.custom_form = updates.customForm;
+      if (updates.formSchema !== undefined) dbRow.form_schema = updates.formSchema;
+      if (updates.announcements !== undefined) dbRow.announcements = updates.announcements;
+      if (updates.results !== undefined) dbRow.results = updates.results;
+      if (updates.notifications !== undefined) dbRow.notifications = updates.notifications;
+      dbRow.updated_at = updated.updatedAt;
+
+      await fetch(`${SUPABASE_URL}/rest/v1/placement_drives?id=eq.${encodeURIComponent(id)}`, {
+        method: 'PATCH',
+        headers: writeHeaders,
+        body: JSON.stringify(dbRow),
+      });
+    } catch (err) {
+      console.warn('Supabase placement_drives patch notice:', err.message);
+    }
+  }
+
+  // Dispatch notification if status transitioned to PUBLISHED
+  if (updated.status === 'PUBLISHED' && previousStatus !== 'PUBLISHED') {
+    try {
+      await dispatchDriveNotification({
+        driveId: updated.id,
+        title: `Campus Recruitment Drive: ${updated.title}`,
+        body: `Official registration form is now live for ${updated.companyName || updated.title}. Open the form in your app to review requirements and register.`,
+        drive: updated,
+      });
+    } catch (err) {
+      console.warn('dispatchDriveNotification transition notice:', err?.message || err);
+    }
+  }
+
+  return updated;
+}
+
+export async function deletePlacementDrive(id) {
+  global.__RIMT_DB_PLACEMENT_DRIVES = global.__RIMT_DB_PLACEMENT_DRIVES.filter((d) => d.id !== id);
+
+  const writeHeaders = getAdminWriteHeaders();
+  if (writeHeaders && HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/placement_drives?id=eq.${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: writeHeaders,
+      });
+    } catch {}
+  }
+  return true;
+}
+
+export async function getDriveRegistrations(driveId) {
+  let list = [];
+
+  if (HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      const url = driveId
+        ? `${SUPABASE_URL}/rest/v1/drive_registrations?drive_id=eq.${encodeURIComponent(driveId)}&order=registered_at.desc`
+        : `${SUPABASE_URL}/rest/v1/drive_registrations?order=registered_at.desc`;
+      const res = await fetch(url, {
+        headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` },
+        signal: typeof AbortSignal !== 'undefined' && AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined,
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (Array.isArray(rows) && rows.length > 0) {
+          list = rows;
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase getDriveRegistrations error, using memory:', e.message);
+    }
+  }
+
+  if (list.length === 0) {
+    const memory = global.__RIMT_DB_DRIVE_REGISTRATIONS || [];
+    list = driveId ? memory.filter((r) => r.drive_id === driveId) : memory;
+  }
+
+  return list;
+}
+
+export async function registerStudentForDrive(regData) {
+  const now = new Date().toISOString();
+  const answers = regData.answers || regData.metadata?.answers || {};
+  const newRegistration = {
+    id: regData.id || `reg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    drive_id: regData.drive_id || regData.driveId,
+    student_id: regData.student_id || regData.studentId || null,
+    student_name: (regData.student_name || regData.studentName || 'Student Scholar').trim(),
+    roll_no: (regData.roll_no || regData.rollNumber || 'UNKNOWN').trim().toUpperCase(),
+    email: (regData.email || '').trim().toLowerCase(),
+    phone: (regData.phone || '').trim(),
+    department: (regData.department || regData.course || 'BCA').trim(),
+    semester: (regData.semester || regData.year_semester || '3rd Year (5th Sem)').trim(),
+    cgpa: regData.cgpa ? Number(regData.cgpa) : null,
+    resume_url: regData.resume_url || regData.resumeUrl || null,
+    registration_link_id: regData.registration_link_id || regData.registrationLinkId || null,
+    registration_source: regData.registration_source || 'mobile_app',
+    status: regData.status || 'REGISTERED',
+    answers,
+    registered_at: now,
+    metadata: {
+      ...(regData.metadata || {}),
+      answers,
+    },
+  };
+
+  // In-memory duplicate guard
+  const existing = (global.__RIMT_DB_DRIVE_REGISTRATIONS || []).find(
+    (r) => r.drive_id === newRegistration.drive_id && r.roll_no === newRegistration.roll_no
+  );
+  if (existing) {
+    return { ...existing, alreadyRegistered: true };
+  }
+
+  global.__RIMT_DB_DRIVE_REGISTRATIONS = [newRegistration, ...(global.__RIMT_DB_DRIVE_REGISTRATIONS || [])];
+
+  // Write to Supabase if connected
+  const writeHeaders = getAdminWriteHeaders();
+  if (writeHeaders && HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/drive_registrations`, {
+        method: 'POST',
+        headers: writeHeaders,
+        body: JSON.stringify(newRegistration),
+      });
+    } catch (err) {
+      console.warn('Supabase drive_registrations insert notice:', err.message);
+    }
+  }
+
+  return newRegistration;
+}
+
+export async function dispatchDriveNotification({ driveId, title, body, drive }) {
+  const slug = drive?.slug || driveId;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const customForm = drive?.customForm || drive?.formSchema || [];
+  const formUrl = drive?.registrationLinks?.find((l) => l.isOfficialForm || (l.url && l.url.includes('/drives/')))?.url || `${appUrl}/drives/${slug}`;
+
+  const notif = {
+    id: `notif_drive_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    title: title || (drive?.title ? `Placement Drive: ${drive.title}` : 'Campus Notice'),
+    message: body || `Official registration form is now live for ${drive?.companyName || drive?.company_name || drive?.title || 'the upcoming drive'}. Tap to complete requirements and register.`,
+    type: 'drive',
+    priority: 'HIGH',
+    target_type: 'all',
+    target_id: null,
+    data: {
+      drive_id: driveId,
+      slug,
+      registration_link: formUrl,
+      custom_form: customForm,
+      has_custom_form: customForm.length > 0,
+      company_name: drive?.companyName || drive?.company_name || '',
+      role_title: drive?.roleTitle || drive?.role_title || '',
+      category: drive?.category || 'COMPANY_RECRUITMENT',
+      mode: drive?.mode || 'On-campus',
+      venue: drive?.venue || '',
+      starts_at: drive?.startsAt || drive?.starts_at || null,
+      registration_deadline: drive?.registrationDeadline || drive?.registration_deadline || null,
+      package_min: drive?.packageMinLpa || drive?.package_min_lpa || null,
+      package_max: drive?.packageMaxLpa || drive?.package_max_lpa || null,
+      registration_links: drive?.registrationLinks || drive?.registration_links || [],
+      action_route: 'placement',
+      action_params: { driveId, openRegisterModal: true },
+    },
+    action_route: 'placement',
+    is_active: true,
+    created_by: 'T&P Administration',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  const writeHeaders = getAdminWriteHeaders();
+  if (writeHeaders && HAS_SUPABASE_READ && !IS_TEST_ENV) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+        method: 'POST',
+        headers: writeHeaders,
+        body: JSON.stringify(notif),
+      });
+    } catch (err) {
+      console.warn('Supabase notifications insert error:', err.message);
+    }
+  }
+
+  return notif;
+}
+

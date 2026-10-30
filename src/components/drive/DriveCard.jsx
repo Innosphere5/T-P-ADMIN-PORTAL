@@ -152,17 +152,39 @@ export default function DriveCard({ drive, onSelect, viewMode = 'agenda' }) {
 
           {/* Meta Info Line */}
           <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-xs text-text-secondary mt-1">
-            <span className="flex items-center gap-1 font-semibold text-text-primary">
-              <span className="material-symbols-outlined text-sm text-primary">monetization_on</span>
-              CTC: {formatCtcRange(drive.packageMinLpa, drive.packageMaxLpa)}
-            </span>
+            {Boolean(drive.packageMinLpa || drive.packageMaxLpa) ? (
+              <span className="flex items-center gap-1 font-semibold text-text-primary">
+                <span className="material-symbols-outlined text-sm text-primary">monetization_on</span>
+                CTC: {formatCtcRange(drive.packageMinLpa, drive.packageMaxLpa)}
+              </span>
+            ) : drive.category === 'COMPETITION' ? (
+              <span className="flex items-center gap-1 font-semibold text-emerald-800">
+                <span className="material-symbols-outlined text-sm text-emerald-600">emoji_events</span>
+                Prize Challenge &amp; Certificate
+              </span>
+            ) : drive.category === 'COLLEGE_EVENT' ? (
+              <span className="flex items-center gap-1 font-semibold text-amber-800">
+                <span className="material-symbols-outlined text-sm text-amber-600">celebration</span>
+                University Event Entry
+              </span>
+            ) : null}
+
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-sm text-[#8B1D2C]">school</span>
               Eligibility: {eligibilitySummary}
             </span>
+
             <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm text-info-blue">link</span>
-              {activeLinks.length > 0 ? `${activeLinks.length} Active Link(s)` : 'External / Portal Form'}
+              <span className="material-symbols-outlined text-sm text-info-blue">
+                {activeLinks.some((l) => l.url?.includes('docs.google.com') || l.url?.includes('forms.google.com'))
+                  ? 'description'
+                  : 'link'}
+              </span>
+              {activeLinks.length > 0
+                ? activeLinks.some((l) => l.url?.includes('docs.google.com') || l.url?.includes('forms.google.com'))
+                  ? 'Google Docs / Form Attached'
+                  : `${activeLinks.length} Active Link(s)`
+                : 'Registration Portal'}
             </span>
           </div>
 

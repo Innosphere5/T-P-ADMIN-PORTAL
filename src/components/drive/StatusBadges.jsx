@@ -78,11 +78,27 @@ export function DriveStatusBadge({ drive, statusOverride }) {
  * CategoryBadge — Shows the drive classification badge
  */
 export function CategoryBadge({ category }) {
-  if (category === 'UNIVERSITY_EVENT') {
+  if (category === 'COLLEGE_EVENT' || category === 'UNIVERSITY_EVENT') {
     return (
       <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-xs inline-flex items-center gap-1">
-        <span className="material-symbols-outlined text-xs">account_balance</span>
-        University Event
+        <span className="material-symbols-outlined text-xs">celebration</span>
+        College Event / Function
+      </span>
+    );
+  }
+  if (category === 'COMPETITION') {
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shadow-xs inline-flex items-center gap-1">
+        <span className="material-symbols-outlined text-xs">emoji_events</span>
+        Competition / Hackathon
+      </span>
+    );
+  }
+  if (category === 'WORKSHOP') {
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200/80 shadow-xs inline-flex items-center gap-1">
+        <span className="material-symbols-outlined text-xs">school</span>
+        Technical Workshop
       </span>
     );
   }
