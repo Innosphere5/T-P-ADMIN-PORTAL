@@ -12,7 +12,7 @@ export default function RootLayout({ children }) {
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var s=window.sessionStorage;if(s&&s.getItem('rimt_loader_seen')){document.documentElement.setAttribute('data-rimt-loader','seen');}}catch(e){}})();",
+              "(function(){try{var s=window.sessionStorage;var isReload=false;if(window.performance){var nav=window.performance.getEntriesByType&&window.performance.getEntriesByType('navigation')[0];if(nav&&nav.type==='reload')isReload=true;if(!nav&&window.performance.navigation&&window.performance.navigation.type===1)isReload=true;}if(isReload||(s&&s.getItem('rimt_loader_seen')==='1')){document.documentElement.setAttribute('data-rimt-loader','seen');}}catch(e){}})();",
           }}
         />
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />

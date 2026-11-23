@@ -119,10 +119,73 @@ export async function GET() {
       { error: 'Failed to retrieve drives', details: err.message },
       { status: 500 }
     );
+=======
+import { getAuthContext, requireAdmin, apiSuccess, apiError } from '@/lib/drives/authHelper';
+import { getPlacementDrives, createPlacementDrive } from '@/lib/db';
+
+export const dynamic = 'force-dynamic';
+
+/**
+ * GET /api/admin/drives
+ * Lists all drives with query filters, pagination, and registration counts.
+ */
+export async function GET(req) {
+  try {
+    const auth = await getAuthContext(req);
+    requireAdmin(auth);
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get('status');
+    const type = searchParams.get('type');
+    const q = searchParams.get('q')?.toLowerCase();
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
+
+    let allDrives = await getPlacementDrives();
+
+    // Map from DB or placement_drives
+    if (status) {
+      allDrives = allDrives.filter((d) => (d.status || '').toLowerCase() === status.toLowerCase());
+    }
+    if (type) {
+      allDrives = allDrives.filter((d) => (d.category || d.type || '').toLowerCase() === type.toLowerCase());
+    }
+    if (q) {
+      allDrives = allDrives.filter(
+        (d) =>
+          d.title?.toLowerCase().includes(q) ||
+          d.company_name?.toLowerCase().includes(q) ||
+          d.description?.toLowerCase().includes(q)
+      );
+    }
+
+    const total = allDrives.length;
+    const paginated = allDrives.slice((page - 1) * pageSize, page * pageSize);
+
+    // Provide dual response structure for 100% backward & spec compatibility
+    return NextResponse.json({
+      success: true,
+      connected: true,
+      count: total,
+      drives: paginated,
+      data: {
+        total,
+        page,
+        pageSize,
+        items: paginated,
+      },
+    });
+  } catch (err) {
+    if (err.message === 'UNAUTHENTICATED') return apiError('UNAUTHENTICATED', 'Authentication required');
+    if (err.message === 'FORBIDDEN') return apiError('FORBIDDEN', 'Administrator access required');
+    console.error('[GET /api/admin/drives] Error:', err);
+    return apiError('INTERNAL_ERROR', err.message);
+>>>>>>> upstream/main
   }
 }
 
 /**
+<<<<<<< HEAD
  * POST: Create a recruitment drive & automatically trigger notification if published
  */
 export async function POST(req) {

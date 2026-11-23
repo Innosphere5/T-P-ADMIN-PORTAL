@@ -112,6 +112,7 @@ export async function createDrive(drivePayload) {
     },
     status: drivePayload.status || 'DRAFT', // 'DRAFT' | 'PUBLISHED' | 'COMPLETED' | 'CANCELLED'
     registrationLinks: drivePayload.registrationLinks || [],
+    customForm: drivePayload.customForm || drivePayload.formSchema || [],
     announcements: drivePayload.announcements || [],
     results: drivePayload.results || [
       { stage: 'Shortlisted', students: [], publishedAt: null },
@@ -130,7 +131,7 @@ export async function createDrive(drivePayload) {
   sessionDrives = [newDrive, ...sessionDrives];
 
   // Try saving to backend if connected
-  if (backendAvailable) {
+  if (backendAvailable !== false) {
     try {
       const res = await fetch('/api/admin/drives', {
         method: 'POST',
@@ -139,6 +140,7 @@ export async function createDrive(drivePayload) {
       });
       if (res.ok) {
         const saved = await res.json();
+        backendAvailable = true;
         return { success: true, drive: saved.drive || newDrive, connected: true };
       }
     } catch {
@@ -168,7 +170,7 @@ export async function updateDrive(id, updates) {
   };
   sessionDrives[index] = updatedDrive;
 
-  if (backendAvailable) {
+  if (backendAvailable !== false) {
     try {
       const res = await fetch(`/api/admin/drives/${id}`, {
         method: 'PATCH',
@@ -177,6 +179,7 @@ export async function updateDrive(id, updates) {
       });
       if (res.ok) {
         const saved = await res.json();
+        backendAvailable = true;
         return { success: true, drive: saved.drive || updatedDrive, connected: true };
       }
     } catch {
@@ -288,6 +291,46 @@ export async function deleteRegistrationLink(driveId, linkId) {
 
   const updatedLinks = (drive.registrationLinks || []).filter((l) => l.id !== linkId);
   return updateDrive(driveId, { registrationLinks: updatedLinks });
+}
+
+/**
+ * Fetch registered candidates / applicants for a drive
+ * @param {string} driveId
+ * @returns {Promise<Array<Object>>}
+ */
+export async function getDriveRegistrations(driveId) {
+  try {
+    const res = await fetch(`/api/admin/drives/${driveId}/registrations`, {
+      headers: { 'Cache-Control': 'no-cache' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return Array.isArray(data.registrations) ? data.registrations : [];
+    }
+  } catch (err) {
+    console.warn('getDriveRegistrations network error:', err);
+  }
+  return [];
+}
+
+/**
+ * Register student for drive (client helper)
+ * @param {Object} regPayload
+ */
+export async function registerStudentForDrive(regPayload) {
+  try {
+    const res = await fetch('/api/drives/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(regPayload),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (err) {
+    console.warn('registerStudentForDrive error:', err);
+  }
+  return { success: false, error: 'Registration submission failed' };
 }
 
 /**
