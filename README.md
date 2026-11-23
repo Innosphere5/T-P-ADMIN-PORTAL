@@ -1,103 +1,107 @@
-# RIMT Academic Trust — T&P Web Admin Portal & Expo 57 System
+# RIMT Academic Trust — Training & Placement (T&P) Administration Portal
 
-An enterprise-grade **Training & Placement (T&P) Web Admin Portal** built with **Next.js (JSX)** and compatible with **Expo 57** (`react-native` / `FRONTEND-RIMT`).
-
-Designed in 1:1 accordance with:
-- **`stitch_custom_design_implementation`** (Glossy KPI Cards, Specular Highlights, Light Sweeps, Dark Hero `#15151F` Cards)
-- **`DESIGN.md`** (Design system tokens, typography scales, color palettes)
-- **`RESPONSIVE-DESIGN.md`** (3-State layout shell: Mobile drawer, Tablet icon rail, Desktop full sidebar)
-- **`ADMIN-PORTAL.md`** (All 7 T&P core modules)
+An enterprise-grade, institutional **Training & Placement Administration Portal** built with **Next.js 16**, **React 18**, **Tailwind CSS**, and **Supabase PostgreSQL / Realtime**, fully integrated with the student mobile ecosystem (**Expo React Native**).
 
 ---
 
-## 🎨 Design System Deep-Dive
+## 🏛️ System Architecture
 
-### 1. Color Palette Tokens
-| Token | Hex | Usage |
-|---|---|---|
-| **Primary Brand Maroon** | `#8B1D2C` | Active navigation, primary CTA buttons, logo badge, CGPA star chip |
-| **Primary Hover / Dark** | `#6E1521` | Button pressed / hover states |
-| **Dark Hero Surface** | `#15151F` | Hero greeting cards, profile identity card background |
-| **Gold Highlight / Accent**| `#E7B94A` / `#FFDF9B` | Flagship drive badges, Super Dream tags, rating accents |
-| **Success Green** | `#1E9E5A` | "Verified" pills, verified checks, attendance % |
-| **Info Blue** | `#3E6FD9` | Neutral info badges, secondary icon tiles, technical tags |
-| **Background Canvas** | `#F8F9FD` | Ultra-clean institutional background |
-| **Surface Card** | `#FFFFFF` | Glassmorphic cards with backdrop blur & specular top line |
-| **Tint Red / Maroon** | `#FBEAEA` | Stat card background tint (Degrees, Scholars) |
-| **Tint Blue** | `#EAF0FC` | Stat card background tint (Courses, Tech) |
-| **Tint Green** | `#EAF8EF` | Stat card background tint (Profile verification) |
-
-### 2. Typography Hierarchy (Inter Sans)
-- **`display-stat`**: 32px (Desktop) / 26px (Mobile), font-extrabold (`font-weight: 800`), letter-spacing `-0.02em`
-- **`headline-page`**: 24px (Desktop) / 20px (Mobile), font-bold (`font-weight: 700`)
-- **`headline-section`**: 18px, font-semibold (`font-weight: 600`)
-- **`body-default`**: 14px, regular
-- **`label-eyebrow`**: 11px, bold, uppercase tracking-wider
-- **`label-badge`**: 12px, bold
-
-### 3. Glossy Specular Aesthetics
-- **1.5px Specular Inset Highlight**: `h-[1.5px] bg-gradient-to-r from-transparent via-white/80 to-transparent`
-- **Dynamic Light Beam Sweeps**: `animate-sweep-maroon`, `animate-sweep-emerald`, `animate-sweep-blue`, `animate-sweep-amber`
-- **Ambient Glow Auras**: `w-44 h-44 rounded-full bg-rose-500/15 blur-2xl`
-
----
-
-## 📱 Responsive 3-State Layout Shell (`RESPONSIVE-DESIGN.md`)
-
-1. **Mobile (0–767px)**:
-   - Sidebar is off-canvas (`-translate-x-full`)
-   - Hamburger icon button (`md:hidden`) opens overlay drawer with dark backdrop (`bg-black/50`)
-   - Header is full width (`left-0`), main padding is `pl-0`
-   - Search expands to clean overlay on demand
-   - Full-width CTA buttons (min 44px tap target)
-2. **Tablet (`md:` 768–1023px)**:
-   - Persistent **collapsed icon rail** (`w-20`) with 36px icon chips
-   - Header offset is `md:left-20`, main padding is `md:pl-20`
-   - Labels hidden for maximum data table width
-3. **Desktop (`lg:` 1024px+)**:
-   - Full **expanded sidebar** (`w-72`) with brand shield, labels, and system status
-   - Header offset is `lg:left-72`, main padding is `lg:pl-72`
-   - Max width container (`max-w-[1600px] mx-auto`) prevents stretching on ultrawide monitors
+```
+T-P-ADMIN-PORTAL/
+├── docs/                   # Institutional documentation & system architecture guides
+│   ├── ADMIN.md            # Administrative operational workflows & permissions
+│   ├── AGENTS.md           # Backend agent protocols & pipelines
+│   ├── CLAUDE.md           # Assistant development guidelines
+│   ├── FULL-APP.md         # Full-stack system specifications
+│   ├── RESUMEE.md          # Automated resume scoring & ATS parser docs
+│   └── drive.md            # Placement drive lifecycle & live registration engine
+├── public/                 # Static brand assets & logos
+├── src/
+│   ├── app/                # Next.js App Router (pages, layouts, and API routes)
+│   │   ├── api/            # Serverless backend APIs (Auth, Drives, Registrations, FCM, Stats)
+│   │   ├── register/[slug] # Public student drive registration portal
+│   │   ├── admin/          # Admin dashboard & accounts
+│   │   └── company/        # Corporate recruiter portal
+│   ├── components/         # Modular UI component library
+│   │   ├── auth/           # RBAC & authentication guards
+│   │   ├── drive/          # Drive drawers, form builders, and live registrant rosters
+│   │   ├── internship/     # Corporate internship listings & credit monitoring
+│   │   └── placement/      # Placement conversion charts & corporate cards
+│   ├── lib/                # Database clients, auth APIs, FCM admin & utility engines
+│   ├── styles/             # Global Tailwind stylesheets
+│   └── views/              # Core administrative dashboard views
+├── supabase/
+│   └── migrations/         # PostgreSQL database schemas, triggers, and RLS policies
+└── tests/                  # Automated ESM unit test suites (95 passing tests)
+```
 
 ---
 
-## 🖥️ 7 Complete Admin Screens (All `.jsx`)
+## ⚡ Core Features
 
-| # | Screen | Key Features |
-|---|---|---|
-| **01** | [StudentManagement.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/StudentManagement.jsx) | Scholar roster, 4 glossy KPIs, batch/section filters, live verification status, interactive slide-out Dossier Drawer, + Add Scholar modal, Bulk Import CSV |
-| **02** | [CompanyManagement.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/CompanyManagement.jsx) | Corporate directory, Tier-1 MNC tags, active MoUs, Card Grid vs Table toggle, Campus SPOC modal, + Add Company modal |
-| **03** | [DriveManagement.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/DriveManagement.jsx) | Flagship TCS hiring hero card, 4 glossy KPIs, assessment round tracking, eligibility criteria, Schedule Drive modal |
-| **04** | [PlacementStatistics.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/PlacementStatistics.jsx) | Institutional intelligence, 82.4% placement rate, CTC brackets breakdown progress bars, sector donut breakdown, department-wise conversion bars |
-| **05** | [TrainingManagement.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/TrainingManagement.jsx) | Pre-placement skill sprints, trainer assignments, session progress bars, RFID attendance %, course materials drawer, + Add Training modal |
-| **06** | [InternshipMonitoring.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/InternshipMonitoring.jsx) | 6-month semester credit track, corporate stipends (avg ₹32,500), student-to-mentor mapping, completion progress bar, certificate issuance |
-| **07** | [ReportGeneration.jsx](file:///c:/Users/r3dha/OneDrive/Desktop/ADMIN-PANEL-RIMT/src/views/ReportGeneration.jsx) | NAAC Criteria 5.2 compliance export engine, PDF & Excel generation, automated scheduled queues, instant preview & download modal |
+1. **Recruitment Drive Management & Live Registration Engine**:
+   - Create, schedule, and publish campus recruitment drives.
+   - Dynamic Form Builder supporting custom qualification questions, backlogs, and CGPA constraints.
+   - Real-time registrant rosters with instant Supabase Realtime synchronization.
+   - Deduplicated, authoritative single-dispatch FCM push notifications.
+
+2. **Student & Scholar Dossiers**:
+   - Real-time approval/rejection verification workflows.
+   - Instant live session invalidation guard for revoked or rejected scholars.
+   - Detailed academic, project, certificate, and internship tracking.
+
+3. **Corporate Partner Directory & Recruitment Portal**:
+   - Partner directory with Tier-1 MNC categorizations, active MoUs, and SPOC contact mapping.
+   - Corporate login and candidate talent pool exploration.
+
+4. **Institutional Analytics & NAAC Compliance**:
+   - Real-time placement rates, package distribution charts, and department conversion rates.
+   - One-click CSV and report export generation.
 
 ---
 
-## 🚀 Running the Next.js Web App
+## 🚀 Getting Started
 
+### 1. Prerequisites
+- Node.js 18.x or higher
+- Supabase project credentials (URL & Anon/Service Role Key)
+
+### 2. Installation
 ```bash
-# In c:\Users\r3dha\OneDrive\Desktop\ADMIN-PANEL-RIMT:
+npm install
+```
+
+### 3. Environment Configuration
+Copy `.env.example` to `.env` and fill in your credentials:
+```bash
+cp .env.example .env
+```
+
+Required variables:
+```ini
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_KEY=your_anon_key
+NEXT_PUBLIC_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+### 4. Run Development Server
+```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000) to view the portal.
+
+### 5. Run Automated Tests
+```bash
+npm run test
+```
+Executes all 5 test suites (95 unit tests) covering Onboarding, Admin Auth, Corporate Auth, Drive Registrations, and Single-Dispatch FCM deduplication.
 
 ---
 
-## 📱 Expo 57 Compatibility (`src/expo/`)
+## 📚 Documentation
 
-The repository includes a complete Expo 57 compatible screen suite:
-- `src/expo/colors.js` — React Native design tokens
-- `src/expo/screens/StudentManagementScreen.jsx`
-- `src/expo/screens/CompanyManagementScreen.jsx`
-- `src/expo/screens/DriveManagementScreen.jsx`
-- `src/expo/screens/PlacementStatisticsScreen.jsx`
-- `src/expo/screens/TrainingManagementScreen.jsx`
-- `src/expo/screens/InternshipMonitoringScreen.jsx`
-- `src/expo/screens/ReportGenerationScreen.jsx`
-- `src/expo/AdminPortalNavigator.jsx` — Multi-tab screen navigator container
-
-### Using in your Expo 57 project (`FRONTEND-RIMT`):
-1. Copy `src/expo/` and `src/constants/data.js` into your `c:\Users\r3dha\OneDrive\Desktop\FRONTEND-RIMT` project.
-2. Import `<AdminPortalNavigator />` anywhere into your Expo 57 app!
+For in-depth guides and architectural references, see the [`docs/`](./docs) directory:
+- [Administrative Workflows & Permissions](./docs/ADMIN.md)
+- [Drive Management & Registration Architecture](./docs/drive.md)
+- [Resume & ATS Parsing Engine](./docs/RESUMEE.md)
+- [Full Application Specification](./docs/FULL-APP.md)
