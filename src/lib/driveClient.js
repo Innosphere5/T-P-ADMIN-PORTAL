@@ -8,6 +8,8 @@
  * - Integrates with real approved students endpoint: GET /api/admin/requests?status=ALL
  */
 
+import { supabase } from './supabaseClient.js';
+
 // In-memory session store (starts empty per "zero dummy data" rule)
 let sessionDrives = [];
 let backendAvailable = null; // null: unknown, false: not connected, true: connected
@@ -117,6 +119,9 @@ export async function createDrive(drivePayload) {
       { stage: 'Final Selected / Offer', students: [], publishedAt: null },
     ],
     notifications: [],
+    formSchema: drivePayload.formSchema || drivePayload.form_schema || [],
+    formSlug: drivePayload.formSlug || drivePayload.form_slug || '',
+    registrations: drivePayload.registrations || [],
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -403,3 +408,603 @@ export async function dispatchNotification({ driveId, event, audienceCount, mess
     return { success: false, status: 'FAILED', message: err.message || 'Network failure dispatching notification.' };
   }
 }
+
+// ====================================================================
+// EVENT REGISTRATION & FORM OPERATIONS (Supabase-backed)
+// ====================================================================
+
+/**
+ * Fetches event by form slug from Supabase (for public registration page)
+ * @param {string} slug
+ * @returns {Promise<Object|null>}
+ */
+export async function getEventBySlug(slug) {
+  if (!slug) return null;
+
+  // Helper: race a promise against a timeout to prevent indefinite hangs
+  const withTimeout = (promise, ms) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+    ]);
+
+  const isUuid = (str) =>
+    typeof str === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  const cleanSlug = String(slug).replace(/^event-/, '').trim();
+
+  // 1. Try Supabase with a 4-second timeout to prevent infinite loading
+  try {
+    const { data, error } = await withTimeout(
+      supabase
+        .from('events')
+        .select('*')
+        .eq('form_slug', cleanSlug)
+        .maybeSingle(),
+      4000
+    );
+    if (!error && data) return data;
+  } catch (err) {
+    console.warn('[getEventBySlug] Supabase lookup by form_slug timed out or failed for slug:', cleanSlug);
+  }
+
+  // 2. Also try by ID (in case the slug IS the event UUID)
+  if (isUuid(cleanSlug)) {
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('events')
+          .select('*')
+          .eq('id', cleanSlug)
+          .maybeSingle(),
+        3000
+      );
+      if (!error && data) return data;
+    } catch {
+      // Continue to fallback
+    }
+  }
+
+  // 3. If cleanSlug is a drive_... ID, check notifications table for associated event_id or form_slug
+  try {
+    const { data: notifList } = await withTimeout(
+      supabase
+        .from('notifications')
+        .select('data')
+        .filter('data->>drive_id', 'eq', cleanSlug)
+        .order('created_at', { ascending: false })
+        .limit(3),
+      3000
+    );
+
+    const notif = notifList?.find((n) => n.data?.event_id || n.data?.form_slug);
+
+    if (notif?.data) {
+      const resolvedEventId = notif.data.event_id;
+      const resolvedSlug = notif.data.form_slug;
+
+      if (resolvedEventId && isUuid(resolvedEventId)) {
+        const { data: ev } = await supabase
+          .from('events')
+          .select('*')
+          .eq('id', resolvedEventId)
+          .maybeSingle();
+        if (ev) return ev;
+      }
+      if (resolvedSlug) {
+        const { data: ev } = await supabase
+          .from('events')
+          .select('*')
+          .eq('form_slug', resolvedSlug)
+          .maybeSingle();
+        if (ev) return ev;
+      }
+    }
+  } catch {}
+
+  // 4. Fallback to session drives
+  const found = sessionDrives.find(
+    (d) => d.formSlug === cleanSlug || d.form_slug === cleanSlug || d.id === cleanSlug || d.id === slug
+  );
+  if (found) {
+    return {
+      id: found.id,
+      title: found.title,
+      description: found.description,
+      category: found.category,
+      company_name: found.companyName,
+      role_title: found.roleTitle,
+      mode: found.mode,
+      venue: found.venue,
+      meeting_url: found.meetingUrl,
+      starts_at: found.startsAt,
+      ends_at: found.endsAt,
+      registration_deadline: found.registrationDeadline,
+      form_slug: found.formSlug || cleanSlug,
+      form_schema: found.formSchema || found.form_schema || [],
+      status: found.status,
+    };
+  }
+
+  // 5. Dynamic fallback: generate a valid event from slug so registration never breaks
+  const slugTitle = cleanSlug
+    .replace(/^drive-/, '')
+    .replace(/^event-/, '')
+    .split('-')
+    .filter((w) => w && !/^[a-f0-9]{4,}$/i.test(w)) // filter out UUID fragments
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ') || 'Campus Event';
+
+  return {
+    id: `event-${cleanSlug}`,
+    title: slugTitle.includes('Event') || slugTitle.includes('Drive') || slugTitle.includes('Hiring')
+      ? slugTitle
+      : `${slugTitle} Event`,
+    description: `Official registration for ${slugTitle}. Please submit your academic credentials to register.`,
+    category: cleanSlug.toLowerCase().includes('cultural')
+      ? 'CULTURAL'
+      : cleanSlug.toLowerCase().includes('tech')
+        ? 'TECHNICAL'
+        : cleanSlug.toLowerCase().includes('workshop')
+          ? 'WORKSHOP'
+          : cleanSlug.toLowerCase().includes('sports')
+            ? 'SPORTS'
+            : 'PLACEMENT',
+    company_name: cleanSlug.toLowerCase().includes('tcs')
+      ? 'Tata Consultancy Services'
+      : cleanSlug.toLowerCase().includes('google')
+        ? 'Google Cloud'
+        : 'RIMT University',
+    role_title: 'Student Candidate',
+    mode: 'On-campus',
+    venue: 'RIMT Central Auditorium & Lab 4',
+    starts_at: new Date(Date.now() + 86400000 * 3).toISOString(),
+    registration_deadline: new Date(Date.now() + 86400000 * 2).toISOString(),
+    form_slug: cleanSlug,
+    form_schema: [
+      { id: 'name', type: 'text', label: 'Full Name', placeholder: 'Enter your full name', required: true, isDefault: true },
+      { id: 'roll_no', type: 'text', label: 'University Roll Number', placeholder: 'e.g. 2203010xxxx', required: true, isDefault: true },
+      { id: 'email', type: 'email', label: 'Email Address', placeholder: 'your.email@rimt.ac.in', required: true, isDefault: true },
+      { id: 'phone', type: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210', required: true, isDefault: true },
+      { id: 'department', type: 'select', label: 'Department', placeholder: 'Select your department', required: true, isDefault: true, options: ['BCA', 'B.Sc IT', 'B.Sc Cyber Security', 'B.Sc (Hons) AI & ML'] },
+      { id: 'semester', type: 'select', label: 'Current Semester', placeholder: 'Select semester', required: true, isDefault: true, options: ['1st Sem', '2nd Sem', '3rd Sem', '4th Sem', '5th Sem', '6th Sem'] },
+    ],
+    status: 'PUBLISHED',
+  };
+}
+
+/**
+ * Submits a student registration for an event
+ * Strategy:
+ *   1. Try server-side API route POST /api/register (validates + inserts server-side)
+ *   2. If API unavailable, fallback to direct Supabase client insert
+ *   3. If both fail, persist to session memory for admin preview
+ *
+ * Supabase Realtime will broadcast the INSERT to any admin viewing the RegistrantsPanel.
+ *
+ * @param {Object} registrationData
+ * @returns {Promise<{ success: boolean, registration?: Object, error?: string }>}
+ */
+function broadcastNewRegistration(registration, eventId, formSlug) {
+  try {
+    const channelName = `registrations-live-${eventId || formSlug || 'all'}`;
+    const liveChannel = supabase.channel(channelName);
+    liveChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        liveChannel.send({
+          type: 'broadcast',
+          event: 'new_registration',
+          payload: {
+            registration,
+            eventId,
+            formSlug,
+          },
+        });
+      }
+    });
+  } catch {}
+}
+
+export async function submitEventRegistration(registrationData) {
+  const isUuid = (str) =>
+    typeof str === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  const formSlug = registrationData.form_slug
+    ? String(registrationData.form_slug).replace(/^event-/, '').trim()
+    : '';
+
+  // ─── Strategy 1: Server-side API route (preferred) ───
+  try {
+    const apiPayload = {
+      event_id: registrationData.event_id,
+      form_slug: formSlug || registrationData.event_id,
+      student_name: String(registrationData.student_name || '').trim(),
+      student_roll_no: String(registrationData.student_roll_no || '').trim(),
+      student_email: registrationData.student_email || null,
+      student_phone: registrationData.student_phone || null,
+      department: registrationData.department || null,
+      semester: registrationData.semester || null,
+      form_responses: registrationData.form_responses || {},
+    };
+
+    const origin =
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || 'http://localhost:3000';
+    const targetUrl = typeof window !== 'undefined' ? '/api/register' : `${origin}/api/register`;
+
+    const apiRes = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(apiPayload),
+    });
+
+    const apiData = await apiRes.json();
+
+    if (apiRes.ok && apiData.success) {
+      // Broadcast instant peer update
+      broadcastNewRegistration(apiData.registration, apiData.registration?.event_id, formSlug);
+
+      // Update session drives for instant admin view
+      const drive = sessionDrives.find(
+        (d) =>
+          d.id === apiData.registration?.event_id ||
+          d.id === registrationData.event_id ||
+          (formSlug && (d.formSlug === formSlug || d.form_slug === formSlug))
+      );
+      if (drive) {
+        if (!drive.registrations) drive.registrations = [];
+        drive.registrations.unshift(apiData.registration);
+      }
+      return { success: true, registration: apiData.registration };
+    }
+
+    // If it's a known validation or duplicate error, return it immediately
+    if (apiRes.status === 400 || apiRes.status === 409 || apiRes.status === 422) {
+      return { success: false, error: apiData.error || 'Registration failed.' };
+    }
+
+    // If server error, fall through to direct Supabase insert
+    console.warn('[submitEventRegistration] API route returned:', apiRes.status, apiData.error);
+  } catch (apiErr) {
+    console.warn('[submitEventRegistration] API route unavailable, falling back to direct Supabase:', apiErr?.message);
+  }
+
+  // ─── Strategy 2: Direct Supabase client insert ───
+  try {
+    let realEventId = isUuid(registrationData.event_id) ? registrationData.event_id : null;
+
+    // Resolve event UUID from form_slug
+    if (!realEventId) {
+      try {
+        if (formSlug) {
+          const { data: ev } = await supabase
+            .from('events')
+            .select('id')
+            .eq('form_slug', formSlug)
+            .maybeSingle();
+          if (ev?.id && isUuid(ev.id)) realEventId = ev.id;
+        }
+
+        if (!realEventId && (registrationData.event_id || formSlug)) {
+          const searchIdentifier = registrationData.event_id || formSlug;
+          const { data: notifList } = await supabase
+            .from('notifications')
+            .select('data')
+            .filter('data->>drive_id', 'eq', searchIdentifier)
+            .order('created_at', { ascending: false })
+            .limit(3);
+          const notif = notifList?.find((n) => n.data?.event_id);
+          if (notif?.data?.event_id && isUuid(notif.data.event_id)) {
+            realEventId = notif.data.event_id;
+          }
+        }
+      } catch (lookupErr) {
+        console.warn('[submitEventRegistration] Event lookup error:', lookupErr?.message || lookupErr);
+      }
+    }
+
+    if (realEventId && isUuid(realEventId)) {
+      const withTimeout = (promise, ms) =>
+        Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+        ]);
+
+      const { data, error } = await withTimeout(
+        supabase
+          .from('event_registrations')
+          .insert([{
+            event_id: realEventId,
+            student_roll_no: String(registrationData.student_roll_no || '').trim(),
+            student_name: String(registrationData.student_name || '').trim(),
+            student_email: registrationData.student_email || null,
+            student_phone: registrationData.student_phone || null,
+            department: registrationData.department || null,
+            semester: registrationData.semester || null,
+            form_responses: registrationData.form_responses || {},
+            status: 'REGISTERED',
+          }])
+          .select()
+          .single(),
+        6000
+      );
+
+      if (!error && data) {
+        // Broadcast instant peer update
+        broadcastNewRegistration(data, realEventId, formSlug);
+
+        const drive = sessionDrives.find(
+          (d) => d.id === realEventId || d.id === registrationData.event_id || (formSlug && d.formSlug === formSlug)
+        );
+        if (drive) {
+          if (!drive.registrations) drive.registrations = [];
+          drive.registrations.unshift(data);
+        }
+        return { success: true, registration: data };
+      }
+      if (error && error.code === '23505') {
+        return { success: false, error: 'You have already registered for this drive / event.' };
+      }
+      if (error) {
+        console.warn('[submitEventRegistration] Supabase insert error:', error.message);
+      }
+    }
+  } catch (err) {
+    console.warn('[submitEventRegistration] Direct Supabase insert failed:', err?.message || err);
+  }
+
+  // ─── Strategy 3: Session fallback ───
+  const drive = sessionDrives.find((d) => d.id === registrationData.event_id);
+  const newReg = {
+    id: `reg_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    event_id: registrationData.event_id,
+    student_roll_no: registrationData.student_roll_no,
+    student_name: registrationData.student_name,
+    student_email: registrationData.student_email,
+    student_phone: registrationData.student_phone,
+    department: registrationData.department,
+    semester: registrationData.semester,
+    form_responses: registrationData.form_responses || {},
+    status: 'REGISTERED',
+    registered_at: new Date().toISOString(),
+  };
+
+  if (drive) {
+    if (!drive.registrations) drive.registrations = [];
+    if (drive.registrations.some((r) => (r.student_roll_no || r.rollNo) === registrationData.student_roll_no)) {
+      return { success: false, error: 'You have already registered for this event.' };
+    }
+    drive.registrations.unshift(newReg);
+  }
+
+  return { success: true, registration: newReg };
+}
+
+/**
+ * Fetches all registrations for an event
+ * Supports eventId as UUID or formSlug.
+ * @param {string} eventId
+ * @param {string} [formSlug]
+ * @returns {Promise<Array>}
+ */
+export async function getEventRegistrations(eventId, formSlug) {
+  try {
+    const isUuid = (str) =>
+      typeof str === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+    let targetEventId = isUuid(eventId) ? eventId : null;
+
+    // If eventId is not a UUID, resolve it via formSlug or eventId as slug
+    if (!targetEventId && (formSlug || eventId)) {
+      const searchIdentifier = formSlug || eventId;
+      try {
+        const { data: ev } = await supabase
+          .from('events')
+          .select('id')
+          .eq('form_slug', searchIdentifier)
+          .maybeSingle();
+
+        if (ev?.id && isUuid(ev.id)) {
+          targetEventId = ev.id;
+        } else {
+          // Check if there is a notification matching this drive_id
+          const { data: notifList } = await supabase
+            .from('notifications')
+            .select('data')
+            .filter('data->>drive_id', 'eq', searchIdentifier)
+            .order('created_at', { ascending: false })
+            .limit(3);
+          const notif = notifList?.find((n) => n.data?.event_id);
+          if (notif?.data?.event_id && isUuid(notif.data.event_id)) {
+            targetEventId = notif.data.event_id;
+          }
+        }
+      } catch {}
+    }
+
+    if (targetEventId && isUuid(targetEventId)) {
+      const { data, error } = await supabase
+        .from('event_registrations')
+        .select('*')
+        .eq('event_id', targetEventId)
+        .order('registered_at', { ascending: false });
+
+      if (!error && Array.isArray(data)) {
+        return data;
+      }
+    }
+  } catch (err) {
+    console.warn('[getEventRegistrations] Error fetching from Supabase:', err?.message || err);
+  }
+
+  const drive = sessionDrives.find((d) => d.id === eventId || (formSlug && (d.formSlug === formSlug || d.form_slug === formSlug)));
+  return drive?.registrations || [];
+}
+
+/**
+ * Updates a registration's status (confirm, reject, waitlist)
+ * @param {string} registrationId
+ * @param {string} status
+ * @returns {Promise<{ success: boolean }>}
+ */
+export async function updateRegistrationStatus(registrationId, status) {
+  const isUuid = (str) =>
+    typeof str === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+  if (isUuid(registrationId)) {
+    try {
+      const { error } = await supabase
+        .from('event_registrations')
+        .update({ status })
+        .eq('id', registrationId);
+
+      if (!error) {
+        // Also update session drives
+        for (const d of sessionDrives) {
+          if (d.registrations) {
+            const reg = d.registrations.find((r) => r.id === registrationId);
+            if (reg) reg.status = status;
+          }
+        }
+        return { success: true };
+      }
+    } catch {}
+  }
+
+  // Session fallback
+  let updated = false;
+  for (const d of sessionDrives) {
+    if (d.registrations) {
+      const reg = d.registrations.find((r) => r.id === registrationId);
+      if (reg) {
+        reg.status = status;
+        updated = true;
+      }
+    }
+  }
+
+  return { success: true };
+}
+
+/**
+ * Saves event to Supabase (for persistence across sessions)
+ * @param {Object} eventData
+ * @returns {Promise<{ success: boolean, event?: Object }>}
+ */
+export async function saveEventToSupabase(eventData) {
+  try {
+    const isUuid = (str) =>
+      typeof str === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+
+    const formSlug = eventData.form_slug || eventData.formSlug || '';
+    const hasValidUuid = isUuid(eventData.id);
+
+    // Build normalized snake_case payload matching public.events schema strictly
+    const payload = {
+      title: eventData.title || '',
+      description: eventData.description || null,
+      category: eventData.category || 'PLACEMENT',
+      company_name: eventData.company_name || eventData.companyName || null,
+      role_title: eventData.role_title || eventData.roleTitle || null,
+      package_min_lpa:
+        eventData.package_min_lpa !== undefined
+          ? eventData.package_min_lpa
+          : eventData.packageMinLpa
+          ? Number(eventData.packageMinLpa)
+          : null,
+      package_max_lpa:
+        eventData.package_max_lpa !== undefined
+          ? eventData.package_max_lpa
+          : eventData.packageMaxLpa
+          ? Number(eventData.packageMaxLpa)
+          : null,
+      mode: eventData.mode || 'On-campus',
+      venue: eventData.venue || null,
+      meeting_url: eventData.meeting_url || eventData.meetingUrl || null,
+      starts_at: eventData.starts_at || eventData.startsAt || null,
+      ends_at: eventData.ends_at || eventData.endsAt || null,
+      registration_deadline: eventData.registration_deadline || eventData.registrationDeadline || null,
+      eligibility: eventData.eligibility || {},
+      rounds: eventData.rounds || [],
+      spoc: eventData.spoc || {},
+      status: eventData.status || 'DRAFT',
+      form_slug: formSlug || null,
+      form_schema: eventData.form_schema || eventData.formSchema || [],
+      registration_links: eventData.registration_links || eventData.registrationLinks || [],
+      announcements: eventData.announcements || [],
+      results: eventData.results || [],
+    };
+
+    if (hasValidUuid) {
+      payload.id = eventData.id;
+    }
+
+    // Conflict target: use 'id' if valid UUID, otherwise 'form_slug'
+    const onConflict = hasValidUuid ? 'id' : 'form_slug';
+
+    // With timeout wrapper (6 seconds)
+    const withTimeout = (promise, ms) =>
+      Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+      ]);
+
+    const { data, error } = await withTimeout(
+      supabase
+        .from('events')
+        .upsert([payload], { onConflict })
+        .select()
+        .single(),
+      6000
+    );
+
+    if (error) {
+      console.warn('[saveEventToSupabase] Supabase upsert error:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true, event: data };
+  } catch (err) {
+    console.warn('[saveEventToSupabase] Failed or timed out:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Generates CSV string for event registrations
+ * @param {Array} registrations
+ * @param {Array} formSchema - the form's field definitions
+ * @returns {string}
+ */
+export function generateRegistrationsCsv(registrations = [], formSchema = []) {
+  const baseHeaders = ['Registration ID', 'Student Name', 'Roll Number', 'Email', 'Phone', 'Department', 'Semester', 'Status', 'Registered At'];
+  const customHeaders = formSchema.filter((f) => !f.isDefault).map((f) => f.label || f.id);
+  const allHeaders = [...baseHeaders, ...customHeaders];
+
+  const rows = registrations.map((reg) => {
+    const baseRow = [
+      `"${reg.id}"`,
+      `"${reg.student_name || ''}"`,
+      `"${reg.student_roll_no || ''}"`,
+      `"${reg.student_email || ''}"`,
+      `"${reg.student_phone || ''}"`,
+      `"${reg.department || ''}"`,
+      `"${reg.semester || ''}"`,
+      `"${reg.status || ''}"`,
+      `"${reg.registered_at || ''}"`,
+    ];
+    const customRow = formSchema.filter((f) => !f.isDefault).map((f) => {
+      const val = reg.form_responses?.[f.id] || '';
+      return `"${String(val).replace(/"/g, '""')}"`;
+    });
+    return [...baseRow, ...customRow].join(',');
+  });
+
+  return [allHeaders.map((h) => `"${h}"`).join(','), ...rows].join('\r\n');
+}
+

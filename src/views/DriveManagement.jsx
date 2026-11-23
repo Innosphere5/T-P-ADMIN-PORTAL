@@ -19,6 +19,7 @@ import {
   updateResults,
   dispatchNotification,
   fetchApprovedStudents,
+  saveEventToSupabase,
 } from '@/lib/driveClient';
 import { createNotification } from '@/lib/db';
 import {
@@ -27,6 +28,8 @@ import {
   formatDateTime,
   formatCtcRange,
   computeScheduleDiff,
+  EVENT_CATEGORIES,
+  generateFormSlug,
 } from '@/lib/driveUtils';
 
 /**
@@ -100,6 +103,97 @@ export default function DriveManagement({ globalSearch = '' }) {
       .then((st) => setApprovedStudents(st))
       .catch(() => {});
   }, [refreshDrives]);
+
+  // Subscribe to real-time drive registrations across all drives
+  useEffect(() => {
+    let channel;
+    let isSubscribed = true;
+
+    async function subscribeGlobalRegistrations() {
+      try {
+        const { supabase } = await import('@/lib/supabaseClient');
+        channel = supabase
+          .channel('global-drive-registrations')
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'event_registrations',
+            },
+            (payload) => {
+              if (!isSubscribed || !payload?.new) return;
+              const reg = payload.new;
+
+              setDrivesList((prevDrives) => {
+                const targetDrive = prevDrives.find(
+                  (d) =>
+                    d.id === reg.event_id ||
+                    d.eventId === reg.event_id ||
+                    d.event_id === reg.event_id
+                );
+                const driveTitle = targetDrive?.title || targetDrive?.companyName || 'Campus Event';
+                showToast(
+                  `🎓 New Registration: ${reg.student_name} (${reg.student_roll_no || 'Student'}) registered for ${driveTitle}!`
+                );
+
+                return prevDrives.map((d) => {
+                  const matches =
+                    d.id === reg.event_id ||
+                    d.eventId === reg.event_id ||
+                    d.event_id === reg.event_id;
+                  if (!matches) return d;
+                  const currentRegs = d.registrations || [];
+                  if (
+                    currentRegs.some(
+                      (r) => r.id === reg.id || r.student_roll_no === reg.student_roll_no
+                    )
+                  ) {
+                    return d;
+                  }
+                  return { ...d, registrations: [reg, ...currentRegs] };
+                });
+              });
+
+              // Also update selectedDrive if currently open
+              setSelectedDrive((curr) => {
+                if (!curr) return null;
+                const matches =
+                  curr.id === reg.event_id ||
+                  curr.eventId === reg.event_id ||
+                  curr.event_id === reg.event_id;
+                if (!matches) return curr;
+                const currentRegs = curr.registrations || [];
+                if (
+                  currentRegs.some(
+                    (r) => r.id === reg.id || r.student_roll_no === reg.student_roll_no
+                  )
+                ) {
+                  return curr;
+                }
+                return { ...curr, registrations: [reg, ...currentRegs] };
+              });
+            }
+          )
+          .subscribe();
+      } catch (err) {
+        console.warn('[DriveManagement] Global registrations subscription notice:', err?.message || err);
+      }
+    }
+
+    subscribeGlobalRegistrations();
+
+    return () => {
+      isSubscribed = false;
+      if (channel) {
+        import('@/lib/supabaseClient')
+          .then(({ supabase }) => {
+            supabase.removeChannel(channel);
+          })
+          .catch(() => {});
+      }
+    };
+  }, [showToast]);
 
   // Combined search term
   const effectiveSearch = (globalSearch || searchFilter).toLowerCase().trim();
@@ -256,6 +350,44 @@ export default function DriveManagement({ globalSearch = '' }) {
         setEditingDrive(null);
         showToast(`Drive "${formData.title}" updated successfully.`);
 
+        // Also ensure Supabase event is synced if published
+        if (formData.status === 'PUBLISHED') {
+          const formSlug =
+            formData.formSlug ||
+            formData.form_slug ||
+            res.drive?.formSlug ||
+            res.drive?.form_slug ||
+            editingDrive.formSlug ||
+            editingDrive.form_slug ||
+            generateFormSlug(formData.title || 'event');
+          try {
+            await saveEventToSupabase({
+              id: editingDrive.id,
+              title: formData.title,
+              description: formData.description,
+              category: formData.category,
+              company_name: formData.companyName,
+              role_title: formData.roleTitle,
+              mode: formData.mode,
+              venue: formData.venue,
+              meeting_url: formData.meetingUrl,
+              starts_at: formData.startsAt,
+              ends_at: formData.endsAt,
+              registration_deadline: formData.registrationDeadline,
+              package_min_lpa: formData.packageMinLpa,
+              package_max_lpa: formData.packageMaxLpa,
+              eligibility: formData.eligibility,
+              rounds: formData.rounds,
+              spoc: formData.spoc,
+              status: formData.status,
+              form_slug: formSlug,
+              form_schema: formData.formSchema,
+            });
+          } catch (e) {
+            console.warn('[DriveManagement] Failed to update event in Supabase:', e?.message || e);
+          }
+        }
+
         if (diffs.length > 0 && formData.status === 'PUBLISHED') {
           // Open detail modal directly on announcements tab with diff
           setScheduleDiff(diffs);
@@ -273,34 +405,47 @@ export default function DriveManagement({ globalSearch = '' }) {
 
         // If published, auto-insert notification into Supabase AND offer notification confirm modal
         if (formData.status === 'PUBLISHED') {
-          // Insert notification into Supabase so student app receives it
+          const formSlug =
+            formData.formSlug ||
+            formData.form_slug ||
+            res.drive?.formSlug ||
+            res.drive?.form_slug ||
+            generateFormSlug(formData.title || 'event');
+
+          let savedEventId = res.drive?.id;
           try {
-            await createNotification({
-              title: `Placement Drive: ${formData.title}`,
-              message: `${formData.companyName || formData.title} campus recruitment drive has been published. Package: ${formatCtcRange(formData.packageMinLpa, formData.packageMaxLpa)}. Mode: ${formData.mode || 'On-campus'}. ${formData.venue ? 'Venue: ' + formData.venue + '. ' : ''}${formData.registrationDeadline ? 'Register by: ' + formatDateTime(formData.registrationDeadline) + '.' : 'Check the portal for registration details.'}`,
-              type: 'drive',
-              priority: 'URGENT',
-              target_type: 'all',
-              target_id: null,
-              data: {
-                drive_id: res.drive.id,
-                company_name: formData.companyName || '',
-                role_title: formData.roleTitle || formData.title,
-                package_min: formData.packageMinLpa || null,
-                package_max: formData.packageMaxLpa || null,
-                mode: formData.mode || 'On-campus',
-                venue: formData.venue || '',
-                starts_at: formData.startsAt || null,
-                registration_deadline: formData.registrationDeadline || null,
-                min_cgpa: formData.eligibility?.minCgpa || null,
-              },
-              action_route: 'placement',
-              created_by: 'T&P Administration',
+            const saveRes = await saveEventToSupabase({
+              id: res.drive?.id,
+              title: formData.title,
+              description: formData.description,
+              category: formData.category,
+              company_name: formData.companyName,
+              role_title: formData.roleTitle,
+              mode: formData.mode,
+              venue: formData.venue,
+              meeting_url: formData.meetingUrl,
+              starts_at: formData.startsAt,
+              ends_at: formData.endsAt,
+              registration_deadline: formData.registrationDeadline,
+              package_min_lpa: formData.packageMinLpa,
+              package_max_lpa: formData.packageMaxLpa,
+              eligibility: formData.eligibility,
+              rounds: formData.rounds,
+              spoc: formData.spoc,
+              status: formData.status,
+              form_slug: formSlug,
+              form_schema: formData.formSchema,
             });
-          } catch (notifErr) {
-            console.warn('Failed to auto-dispatch drive notification to Supabase:', notifErr.message);
+            if (saveRes?.event?.id) {
+              savedEventId = saveRes.event.id;
+            } else if (!saveRes?.success) {
+              console.warn('[DriveManagement] saveEventToSupabase reported:', saveRes?.error);
+            }
+          } catch (saveErr) {
+            console.warn('[DriveManagement] Failed to save event to Supabase:', saveErr?.message || saveErr);
           }
 
+          // Prepare notification prompt for student app broadcast
           const matchingEligible = approvedStudents.filter((st) => {
             const depts = formData.eligibility?.departments || [];
             if (depts.length > 0 && !depts.includes(st.department || 'BCA')) return false;
@@ -407,29 +552,9 @@ export default function DriveManagement({ globalSearch = '' }) {
     });
   };
 
-  // Confirm and dispatch notification
+  // Confirm and dispatch notification (authoritative single dispatch via server API)
   const handleConfirmNotification = async (payload) => {
     setNotifyModalState((prev) => ({ ...prev, isSending: true }));
-
-    // Always persist notification to Supabase notifications table for student app delivery
-    try {
-      await createNotification({
-        title: payload.title,
-        message: payload.body,
-        type: 'drive',
-        priority: 'URGENT',
-        target_type: 'all',
-        target_id: null,
-        data: {
-          drive_id: notifyModalState.driveId,
-          event: payload.event,
-        },
-        action_route: 'placement',
-        created_by: 'Raj Kumar (HOD BCA)',
-      });
-    } catch (notifErr) {
-      console.warn('Failed to persist drive notification to Supabase:', notifErr.message);
-    }
 
     const res = await dispatchNotification({
       driveId: notifyModalState.driveId,
@@ -449,7 +574,7 @@ export default function DriveManagement({ globalSearch = '' }) {
     }
 
     if (res.success) {
-      showToast(res.message || 'Notification dispatched.');
+      showToast(res.message || 'Notification dispatched via FCM Push.');
     } else {
       showToast(res.message || 'Notification recorded in session log.', 'warning');
     }
@@ -958,13 +1083,18 @@ export default function DriveManagement({ globalSearch = '' }) {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="h-9 px-2.5 bg-white/90 text-text-primary rounded-lg text-xs outline-none border border-border-subtle"
+                className="h-9 px-2.5 bg-white/90 text-text-primary rounded-lg text-xs outline-none border border-border-subtle font-medium"
                 title="Filter by category"
               >
-                <option value="ALL">All Categories</option>
-                <option value="COMPANY_RECRUITMENT">Campus Recruitment</option>
-                <option value="UNIVERSITY_EVENT">University Event</option>
-                <option value="PLACEMENT_ACTIVITY">Placement Activity</option>
+                <option value="ALL">All Event Categories</option>
+                {EVENT_CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.label}
+                  </option>
+                ))}
+                <option value="COMPANY_RECRUITMENT">Campus Recruitment (Legacy)</option>
+                <option value="UNIVERSITY_EVENT">University Event (Legacy)</option>
+                <option value="PLACEMENT_ACTIVITY">Placement Activity (Legacy)</option>
               </select>
 
               {/* Department Filter */}

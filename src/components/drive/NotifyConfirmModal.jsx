@@ -77,16 +77,28 @@ export default function NotifyConfirmModal({
           </button>
         </div>
 
-        {/* Warning if Gateway is not connected */}
-        {!isBackendConnected && (
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
-            <span className="material-symbols-outlined text-amber-700 text-base shrink-0 mt-0.5">
-              cloud_off
+        {/* FCM Push Delivery Status */}
+        {!isBackendConnected ? (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-emerald-700 text-base shrink-0 mt-0.5">
+              cell_tower
             </span>
             <div className="flex flex-col">
-              <span className="font-bold">Notification Gateway Standby</span>
-              <p className="text-[11px] text-amber-800 mt-0.5">
-                The external push/SMS delivery endpoint is not connected yet. This action will log the publication into the drive timeline and session records, but will not send external notifications to physical phones.
+              <span className="font-bold">FCM Push Notification Active</span>
+              <p className="text-[11px] text-emerald-800 mt-0.5">
+                This notification will be broadcasted via <strong>Firebase Cloud Messaging (FCM)</strong> to all student devices subscribed to the campus topic. Students will receive a real-time push notification on their Android devices.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-start gap-2.5">
+            <span className="material-symbols-outlined text-emerald-700 text-base shrink-0 mt-0.5">
+              send
+            </span>
+            <div className="flex flex-col">
+              <span className="font-bold">FCM + Backend Delivery Ready</span>
+              <p className="text-[11px] text-emerald-800 mt-0.5">
+                Push notification will be delivered via both the backend gateway and FCM topic broadcast simultaneously for maximum reach.
               </p>
             </div>
           </div>

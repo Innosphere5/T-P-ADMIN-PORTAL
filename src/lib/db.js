@@ -2989,6 +2989,27 @@ export async function createNotification(data, actor = null) {
     throw new Error('Notification title and message are required');
   }
 
+  // ===== DEDUPLICATION & IDEMPOTENCY GUARD =====
+  // Prevents duplicate notification inserts and duplicate FCM pushes
+  // caused by concurrent triggers, double clicks, or multi-stage dispatch handlers.
+  if (!global.__RIMT_RECENT_NOTIF_DISPATCHES) {
+    global.__RIMT_RECENT_NOTIF_DISPATCHES = new Map();
+  }
+
+  const rawTitle = String(data.title).trim();
+  const rawMessage = String(data.message).trim();
+  const entityId = data.data?.drive_id || data.data?.event_id || data.data?.opportunity_id || '';
+  const dedupeKey = data.idempotency_key ||
+    `${data.type || 'general'}:${entityId}:${rawTitle}:${rawMessage}`;
+
+  const recentDispatch = global.__RIMT_RECENT_NOTIF_DISPATCHES.get(dedupeKey);
+  if (recentDispatch && Date.now() - recentDispatch.timestamp < 20000) {
+    console.log(
+      `[createNotification] ⚡ Deduplicated duplicate notification (${Date.now() - recentDispatch.timestamp}ms ago) for: "${rawTitle}"`
+    );
+    return recentDispatch.notification;
+  }
+
   const id = crypto.randomUUID ? crypto.randomUUID() : `notif-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const now = new Date().toISOString();
   const actorName = actor?.full_name || actor?.name || 'T&P Administration';
@@ -3040,6 +3061,59 @@ export async function createNotification(data, actor = null) {
     global.__RIMT_DB_NOTIFICATIONS = [];
   }
   global.__RIMT_DB_NOTIFICATIONS.unshift(notification);
+
+  // ===== UNIFIED FCM PUSH DISPATCH =====
+  // Trigger FCM push broadcast via the dedicated server API route
+  try {
+    if (typeof fetch === 'function') {
+      const baseUrl = typeof window !== 'undefined'
+        ? ''
+        : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+
+      fetch(`${baseUrl}/api/fcm/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: notification.title,
+          message: notification.message,
+          type: notification.type || 'general',
+          priority: notification.priority || 'HIGH',
+          data: {
+            notification_id: notification.id,
+            action_route: notification.action_route || 'placement',
+            ...(typeof notification.data === 'object' ? notification.data : {}),
+          },
+          topic: 'all_students',
+        }),
+      }).then(async (res) => {
+        if (res.ok) {
+          console.log(`[createNotification] ✅ FCM push broadcast requested`);
+        }
+      }).catch(() => {
+        // Non-blocking in development / test environments
+      });
+    }
+  } catch (fcmErr) {
+    // Non-blocking
+  }
+
+  // Register in deduplication cache to block duplicate pushes
+  try {
+    if (global.__RIMT_RECENT_NOTIF_DISPATCHES) {
+      global.__RIMT_RECENT_NOTIF_DISPATCHES.set(dedupeKey, {
+        timestamp: Date.now(),
+        notification,
+      });
+
+      // Cleanup entries older than 60 seconds
+      if (global.__RIMT_RECENT_NOTIF_DISPATCHES.size > 80) {
+        const cutoff = Date.now() - 60000;
+        for (const [k, v] of global.__RIMT_RECENT_NOTIF_DISPATCHES.entries()) {
+          if (v.timestamp < cutoff) global.__RIMT_RECENT_NOTIF_DISPATCHES.delete(k);
+        }
+      }
+    }
+  } catch {}
 
   await recordAuditLog({
     actorId,

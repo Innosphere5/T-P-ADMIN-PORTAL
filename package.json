@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "node tests/onboarding.test.mjs && node tests/admin-auth.test.mjs && node tests/company-auth.test.mjs"
+    "test": "node tests/onboarding.test.mjs && node tests/admin-auth.test.mjs && node tests/company-auth.test.mjs && node tests/drive-registration.test.mjs && node tests/fcm-single-dispatch.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

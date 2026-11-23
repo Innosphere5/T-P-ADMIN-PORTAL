@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { deriveDriveStatus, derivePackageTier } from '@/lib/driveUtils';
+import { deriveDriveStatus, derivePackageTier, getCategoryMeta } from '@/lib/driveUtils';
 
 /**
  * DriveStatusBadge — Renders the current lifecycle/temporal pill
@@ -94,10 +94,27 @@ export function CategoryBadge({ category }) {
       </span>
     );
   }
+  if (category === 'COMPANY_RECRUITMENT' || category === 'PLACEMENT') {
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-800 border border-rose-200/80 shadow-xs inline-flex items-center gap-1">
+        <span className="material-symbols-outlined text-xs">corporate_fare</span>
+        Placement Drive
+      </span>
+    );
+  }
+
+  const meta = getCategoryMeta(category);
   return (
-    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-surface-container-high text-on-surface-variant border border-white/60 shadow-xs inline-flex items-center gap-1">
-      <span className="material-symbols-outlined text-xs">apartment</span>
-      Campus Recruitment
+    <span
+      className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold shadow-xs inline-flex items-center gap-1 border"
+      style={{
+        backgroundColor: meta?.bg || '#F1F5F9',
+        color: meta?.color || '#475569',
+        borderColor: meta?.border || '#CBD5E1',
+      }}
+    >
+      <span className="material-symbols-outlined text-xs">{meta?.icon || 'event'}</span>
+      {meta?.label || category}
     </span>
   );
 }

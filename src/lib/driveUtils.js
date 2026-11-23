@@ -240,8 +240,8 @@ export function validateDriveForm(data) {
     errors.category = 'Drive category is required';
   }
 
-  if (data.category === 'COMPANY_RECRUITMENT' && (!data.companyName || !data.companyName.trim())) {
-    errors.companyName = 'Company name is required for recruitment drives';
+  if ((data.category === 'COMPANY_RECRUITMENT' || data.category === 'PLACEMENT') && (!data.companyName || !data.companyName.trim())) {
+    errors.companyName = 'Company / Organisation name is required for recruitment drives';
   }
 
   if (!data.mode) {
@@ -299,6 +299,107 @@ export function validateDriveForm(data) {
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
+  };
+}
+
+// ====================================================================
+// EVENT CATEGORY SYSTEM
+// ====================================================================
+
+/**
+ * Universal event category definitions
+ */
+export const EVENT_CATEGORIES = [
+  { id: 'PLACEMENT', label: 'Placement Drive', icon: 'corporate_fare', color: '#9B1D2C', bg: '#FDE8EB', border: '#F8C4CB' },
+  { id: 'CULTURAL', label: 'Cultural Event', icon: 'celebration', color: '#7C3AED', bg: '#EDE9FE', border: '#C4B5FD' },
+  { id: 'TECHNICAL', label: 'Technical Event', icon: 'terminal', color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
+  { id: 'WORKSHOP', label: 'Workshop', icon: 'construction', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
+  { id: 'SEMINAR', label: 'Seminar', icon: 'school', color: '#0D9488', bg: '#CCFBF1', border: '#99F6E4' },
+  { id: 'SPORTS', label: 'Sports Event', icon: 'sports_soccer', color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
+  { id: 'CUSTOM', label: 'Custom Event', icon: 'tune', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1' },
+];
+
+/**
+ * Gets category metadata by category ID
+ * @param {string} categoryId
+ * @returns {Object}
+ */
+export function getCategoryMeta(categoryId) {
+  return EVENT_CATEGORIES.find((c) => c.id === categoryId) || EVENT_CATEGORIES[EVENT_CATEGORIES.length - 1];
+}
+
+/**
+ * Checks if a category is placement-related (shows company/package fields)
+ * @param {string} categoryId
+ * @returns {boolean}
+ */
+export function isPlacementCategory(categoryId) {
+  return categoryId === 'PLACEMENT';
+}
+
+// ====================================================================
+// FORM BUILDER UTILITIES
+// ====================================================================
+
+/**
+ * Available field types for form builder
+ */
+export const FORM_FIELD_TYPES = [
+  { type: 'text', label: 'Short Text', icon: 'short_text', description: 'Single line text input' },
+  { type: 'email', label: 'Email', icon: 'mail', description: 'Email address input' },
+  { type: 'phone', label: 'Phone', icon: 'call', description: 'Phone number input' },
+  { type: 'number', label: 'Number', icon: 'tag', description: 'Numeric input' },
+  { type: 'textarea', label: 'Long Text', icon: 'notes', description: 'Multi-line text area' },
+  { type: 'select', label: 'Dropdown', icon: 'arrow_drop_down_circle', description: 'Single choice dropdown' },
+  { type: 'multi_select', label: 'Multi Select', icon: 'checklist', description: 'Multiple choice checkboxes' },
+  { type: 'checkbox', label: 'Checkbox', icon: 'check_box', description: 'Yes/No checkbox' },
+  { type: 'date', label: 'Date', icon: 'calendar_today', description: 'Date picker' },
+  { type: 'file', label: 'File Upload', icon: 'attach_file', description: 'Upload document/image' },
+];
+
+/**
+ * Default form fields that are auto-included in every registration form
+ */
+export const DEFAULT_FORM_FIELDS = [
+  { id: 'name', type: 'text', label: 'Full Name', placeholder: 'Enter your full name', required: true, isDefault: true },
+  { id: 'roll_no', type: 'text', label: 'University Roll Number', placeholder: 'e.g. 2203010xxxx', required: true, isDefault: true },
+  { id: 'email', type: 'email', label: 'Email Address', placeholder: 'your.email@rimt.ac.in', required: true, isDefault: true },
+  { id: 'phone', type: 'phone', label: 'Phone Number', placeholder: '+91 98765 43210', required: true, isDefault: true },
+  { id: 'department', type: 'select', label: 'Department', placeholder: 'Select your department', required: true, isDefault: true, options: ['BCA', 'B.Sc IT', 'B.Sc Cyber Security', 'B.Sc (Hons) AI & ML'] },
+  { id: 'semester', type: 'select', label: 'Current Semester', placeholder: 'Select semester', required: true, isDefault: true, options: ['1st Sem', '2nd Sem', '3rd Sem', '4th Sem', '5th Sem', '6th Sem'] },
+];
+
+/**
+ * Generates a URL-safe slug from event title
+ * @param {string} title
+ * @returns {string}
+ */
+export function generateFormSlug(title) {
+  const base = (title || 'event')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 40);
+  const suffix = Math.random().toString(36).substring(2, 8);
+  return `${base}-${suffix}`;
+}
+
+/**
+ * Creates a new custom form field with unique ID
+ * @param {string} type
+ * @returns {Object}
+ */
+export function createFormField(type = 'text') {
+  const fieldType = FORM_FIELD_TYPES.find((f) => f.type === type) || FORM_FIELD_TYPES[0];
+  return {
+    id: `field_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    type: fieldType.type,
+    label: '',
+    placeholder: '',
+    required: false,
+    isDefault: false,
+    options: fieldType.type === 'select' || fieldType.type === 'multi_select' ? ['Option 1', 'Option 2'] : undefined,
   };
 }
 

@@ -47,6 +47,9 @@ export async function POST(req) {
 
     const created = await createNotification(body);
 
+    // NOTE: FCM push is now dispatched automatically inside createNotification()
+    // via the unified dispatch system. No separate FCM call needed here.
+
     return NextResponse.json(
       {
         success: true,

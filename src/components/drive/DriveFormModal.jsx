@@ -2,7 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { HIRING_COMPANIES_CATALOG } from '@/lib/placementStats';
-import { validateDriveForm, derivePackageTier } from '@/lib/driveUtils';
+import {
+  validateDriveForm,
+  derivePackageTier,
+  EVENT_CATEGORIES,
+  DEFAULT_FORM_FIELDS,
+  generateFormSlug,
+  isPlacementCategory,
+} from '@/lib/driveUtils';
+import FormBuilderPanel from './FormBuilderPanel';
 
 const DEPARTMENT_OPTIONS = [
   'BCA',
@@ -21,7 +29,7 @@ const BATCH_OPTIONS = [
 ];
 
 /**
- * DriveFormModal — Create and Edit Recruitment Drives
+ * DriveFormModal — Create and Edit Recruitment Drives & Events
  */
 export default function DriveFormModal({
   isOpen,
@@ -35,7 +43,7 @@ export default function DriveFormModal({
 
   // Form Fields
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState('COMPANY_RECRUITMENT');
+  const [category, setCategory] = useState('PLACEMENT');
   const [companyName, setCompanyName] = useState('');
   const [roleTitle, setRoleTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -62,13 +70,17 @@ export default function DriveFormModal({
   const [spocPhone, setSpocPhone] = useState('');
   const [spocOrg, setSpocOrg] = useState('');
 
+  // Custom Form Builder state
+  const [formSchema, setFormSchema] = useState(DEFAULT_FORM_FIELDS);
+  const [formSlug, setFormSlug] = useState('');
+
   const [formErrors, setFormErrors] = useState({});
 
   // Reset or pre-fill on open
   useEffect(() => {
     if (initialData) {
       setTitle(initialData.title || '');
-      setCategory(initialData.category || 'COMPANY_RECRUITMENT');
+      setCategory(initialData.category || 'PLACEMENT');
       setCompanyName(initialData.companyName || '');
       setRoleTitle(initialData.roleTitle || '');
       setDescription(initialData.description || '');
@@ -94,9 +106,11 @@ export default function DriveFormModal({
       setSpocEmail(initialData.spoc?.email || '');
       setSpocPhone(initialData.spoc?.phone || '');
       setSpocOrg(initialData.spoc?.organisation || '');
+      setFormSchema(initialData.formSchema || initialData.form_schema || DEFAULT_FORM_FIELDS);
+      setFormSlug(initialData.formSlug || initialData.form_slug || generateFormSlug(initialData.title || ''));
     } else {
       setTitle('');
-      setCategory('COMPANY_RECRUITMENT');
+      setCategory('PLACEMENT');
       setCompanyName('');
       setRoleTitle('');
       setDescription('');
@@ -122,6 +136,8 @@ export default function DriveFormModal({
       setSpocEmail('');
       setSpocPhone('');
       setSpocOrg('');
+      setFormSchema(DEFAULT_FORM_FIELDS);
+      setFormSlug('');
     }
     setFormErrors({});
     setActiveTab('basics');
@@ -183,6 +199,7 @@ export default function DriveFormModal({
   };
 
   const handleSubmit = (saveStatus) => {
+    const finalSlug = formSlug?.trim() || generateFormSlug(title);
     const data = {
       title,
       category,
@@ -213,6 +230,10 @@ export default function DriveFormModal({
         phone: spocPhone,
         organisation: spocOrg,
       },
+      formSchema,
+      formSlug: finalSlug,
+      form_schema: formSchema,
+      form_slug: finalSlug,
       status: saveStatus,
     };
 
@@ -260,10 +281,10 @@ export default function DriveFormModal({
             </div>
             <div>
               <h3 className="text-base font-bold tracking-tight">
-                {isEditing ? 'Modify Placement Drive' : 'Schedule New Placement Drive'}
+                {isEditing ? 'Modify Event / Drive' : 'Schedule New Event / Drive'}
               </h3>
               <p className="text-xs text-surface-container-high/80">
-                Institutional Recruitment Schedule &amp; Eligibility Protocol
+                Institutional Event &amp; Placement Schedule &amp; Registration Setup
               </p>
             </div>
           </div>
@@ -283,6 +304,7 @@ export default function DriveFormModal({
             { id: 'compensation', label: '3. Compensation', icon: 'payments' },
             { id: 'eligibility', label: '4. Eligibility', icon: 'school' },
             { id: 'pipeline', label: '5. Pipeline & SPOC', icon: 'hub' },
+            { id: 'form', label: '6. Registration Form', icon: 'dynamic_form' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -306,13 +328,13 @@ export default function DriveFormModal({
             <div className="flex flex-col gap-4 animate-in fade-in duration-150">
               <div className="flex flex-col gap-1">
                 <label className="text-[11px] font-bold text-text-secondary uppercase">
-                  Drive Title *
+                  Drive / Event Title *
                 </label>
                 <input
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g. TCS Digital & Ninja Hiring 2026, Google Cloud Specialist Drive"
+                  placeholder="e.g. TCS Digital Hiring 2026, Annual Tech Fest Hackathon, Cultural Gala 2026"
                   className={`w-full h-10 px-3 rounded-lg bg-surface-container-low text-text-primary text-xs outline-none border transition-colors ${
                     formErrors.title ? 'border-primary' : 'border-border-subtle focus:border-primary'
                   }`}
@@ -325,23 +347,30 @@ export default function DriveFormModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <label className="text-[11px] font-bold text-text-secondary uppercase">
-                    Category *
+                    Event Category *
                   </label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full h-10 px-3 rounded-lg bg-surface-container-low text-text-primary text-xs outline-none border border-border-subtle focus:border-primary"
+                    className="w-full h-10 px-3 rounded-lg bg-surface-container-low text-text-primary text-xs outline-none border border-border-subtle focus:border-primary font-medium"
                   >
-                    <option value="COMPANY_RECRUITMENT">Company Recruitment (On/Off Campus)</option>
-                    <option value="UNIVERSITY_EVENT">University Event (T&amp;P Mega Job Fair)</option>
-                    <option value="PLACEMENT_ACTIVITY">Placement Activity (Bootcamp, Mock Test, PPT)</option>
+                    {EVENT_CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.label}
+                      </option>
+                    ))}
+                    <option value="COMPANY_RECRUITMENT">Company Recruitment (Legacy)</option>
+                    <option value="UNIVERSITY_EVENT">University Event (Legacy)</option>
+                    <option value="PLACEMENT_ACTIVITY">Placement Activity (Legacy)</option>
                   </select>
                 </div>
 
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-text-secondary uppercase">
-                      Company / Organisation *
+                      {isPlacementCategory(category) || category === 'COMPANY_RECRUITMENT'
+                        ? 'Company / Organisation *'
+                        : 'Host Club / Department / Sponsor (Optional)'}
                     </label>
                     <span className="text-[10px] text-primary font-semibold">
                       Or select partner
@@ -780,6 +809,43 @@ export default function DriveFormModal({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* 6. REGISTRATION FORM BUILDER */}
+          {activeTab === 'form' && (
+            <div className="flex flex-col gap-4 animate-in fade-in duration-150">
+              <div className="p-3.5 rounded-xl bg-surface-container-low border border-border-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex flex-col">
+                  <label className="text-[11px] font-bold text-text-secondary uppercase">
+                    Shareable Registration Form URL Slug
+                  </label>
+                  <span className="text-xs text-text-secondary">
+                    Students will access this form at: <span className="font-mono text-primary font-bold">/register/{formSlug || generateFormSlug(title || 'event')}</span>
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <input
+                    value={formSlug}
+                    onChange={(e) => setFormSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                    placeholder={generateFormSlug(title || 'event')}
+                    className="h-9 px-3 rounded-lg bg-white text-text-primary text-xs font-mono outline-none border border-border-subtle focus:border-primary w-full sm:w-56"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFormSlug(generateFormSlug(title || 'event'))}
+                    className="p-2 rounded-lg bg-white border border-border-subtle text-text-secondary hover:text-primary transition-all text-xs"
+                    title="Regenerate slug"
+                  >
+                    <span className="material-symbols-outlined text-sm">autorenew</span>
+                  </button>
+                </div>
+              </div>
+
+              <FormBuilderPanel
+                formSchema={formSchema}
+                onChange={setFormSchema}
+              />
             </div>
           )}
         </div>

@@ -4,12 +4,13 @@ import React, { useState } from 'react';
 import CompanyBrandLogo from '@/components/common/CompanyBrandLogo';
 import { DriveStatusBadge, CategoryBadge, PackageTierBadge } from './StatusBadges';
 import RegistrationLinksPanel from './RegistrationLinksPanel';
+import RegistrantsPanel from './RegistrantsPanel';
 import AnnouncementsPanel from './AnnouncementsPanel';
 import ResultsPanel from './ResultsPanel';
 import { formatDateTime, formatCtcRange } from '@/lib/driveUtils';
 
 /**
- * DriveDetailDrawer — Tabbed modal/drawer detailing drive operations
+ * DriveDetailDrawer — Tabbed modal/drawer detailing drive & event operations
  */
 export default function DriveDetailDrawer({
   drive,
@@ -78,7 +79,7 @@ export default function DriveDetailDrawer({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-sm border border-white/15 transition-all"
             >
               <span className="material-symbols-outlined text-sm">edit</span>
-              <span>Edit Drive</span>
+              <span>Edit Event</span>
             </button>
 
             <button
@@ -94,10 +95,11 @@ export default function DriveDetailDrawer({
         <div className="flex items-center px-6 pt-3 border-b border-border-subtle bg-surface-container-low shrink-0 overflow-x-auto gap-1">
           {[
             { id: 'overview', label: 'Overview', icon: 'dashboard' },
+            { id: 'registrants', label: 'Registrations', icon: 'how_to_reg' },
             { id: 'eligibility', label: 'Eligibility', icon: 'school' },
             {
               id: 'registration',
-              label: `Registration (${drive.registrationLinks?.length || 0})`,
+              label: `External Links (${drive.registrationLinks?.length || 0})`,
               icon: 'link',
             },
             {
@@ -277,6 +279,11 @@ export default function DriveDetailDrawer({
                 )}
               </div>
             </div>
+          )}
+
+          {/* TAB: REGISTRATIONS */}
+          {activeTab === 'registrants' && (
+            <RegistrantsPanel drive={drive} />
           )}
 
           {/* TAB 2: ELIGIBILITY */}
