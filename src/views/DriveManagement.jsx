@@ -21,7 +21,6 @@ import {
   fetchApprovedStudents,
   saveEventToSupabase,
 } from '@/lib/driveClient';
-import { createNotification } from '@/lib/db';
 import {
   deriveDriveStatus,
   generateDrivesCsv,

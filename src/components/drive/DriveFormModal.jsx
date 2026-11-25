@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { HIRING_COMPANIES_CATALOG } from '@/lib/placementStats';
+import { HIRING_COMPANIES_CATALOG } from '@/constants/hiringCompanies';
 import {
   validateDriveForm,
   derivePackageTier,

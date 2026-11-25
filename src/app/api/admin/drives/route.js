@@ -41,8 +41,9 @@ if (!global.__RIMT_DB_DRIVES) {
 
 /**
  * GET: Retrieve list of recruitment drives (Supabase events merged with in-memory store)
+ * Supports query parameters (status, type, q, page, pageSize) and dual response format.
  */
-export async function GET() {
+export async function GET(req) {
   try {
     let supabaseDrives = [];
 
@@ -107,85 +108,62 @@ export async function GET() {
       }
     });
 
-    const allDrives = Array.from(deduped.values());
+    let allDrives = Array.from(deduped.values());
 
-    return NextResponse.json({
-      success: true,
-      count: allDrives.length,
-      drives: allDrives,
-    });
-  } catch (err) {
-    return NextResponse.json(
-      { error: 'Failed to retrieve drives', details: err.message },
-      { status: 500 }
-    );
-=======
-import { getAuthContext, requireAdmin, apiSuccess, apiError } from '@/lib/drives/authHelper';
-import { getPlacementDrives, createPlacementDrive } from '@/lib/db';
+    // Optional query filtering and pagination if URL params exist
+    let paginated = allDrives;
+    let page = 1;
+    let pageSize = allDrives.length || 20;
 
-export const dynamic = 'force-dynamic';
+    if (req?.url) {
+      try {
+        const { searchParams } = new URL(req.url);
+        const status = searchParams.get('status');
+        const type = searchParams.get('type');
+        const q = searchParams.get('q')?.toLowerCase();
+        page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+        pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
 
-/**
- * GET /api/admin/drives
- * Lists all drives with query filters, pagination, and registration counts.
- */
-export async function GET(req) {
-  try {
-    const auth = await getAuthContext(req);
-    requireAdmin(auth);
-
-    const { searchParams } = new URL(req.url);
-    const status = searchParams.get('status');
-    const type = searchParams.get('type');
-    const q = searchParams.get('q')?.toLowerCase();
-    const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get('pageSize') || '20', 10)));
-
-    let allDrives = await getPlacementDrives();
-
-    // Map from DB or placement_drives
-    if (status) {
-      allDrives = allDrives.filter((d) => (d.status || '').toLowerCase() === status.toLowerCase());
-    }
-    if (type) {
-      allDrives = allDrives.filter((d) => (d.category || d.type || '').toLowerCase() === type.toLowerCase());
-    }
-    if (q) {
-      allDrives = allDrives.filter(
-        (d) =>
-          d.title?.toLowerCase().includes(q) ||
-          d.company_name?.toLowerCase().includes(q) ||
-          d.description?.toLowerCase().includes(q)
-      );
+        if (status) {
+          allDrives = allDrives.filter((d) => (d.status || '').toLowerCase() === status.toLowerCase());
+        }
+        if (type) {
+          allDrives = allDrives.filter((d) => (d.category || d.type || '').toLowerCase() === type.toLowerCase());
+        }
+        if (q) {
+          allDrives = allDrives.filter(
+            (d) =>
+              d.title?.toLowerCase().includes(q) ||
+              d.companyName?.toLowerCase().includes(q) ||
+              d.company_name?.toLowerCase().includes(q) ||
+              d.description?.toLowerCase().includes(q)
+          );
+        }
+        paginated = allDrives.slice((page - 1) * pageSize, page * pageSize);
+      } catch {}
     }
 
-    const total = allDrives.length;
-    const paginated = allDrives.slice((page - 1) * pageSize, page * pageSize);
-
-    // Provide dual response structure for 100% backward & spec compatibility
     return NextResponse.json({
       success: true,
       connected: true,
-      count: total,
+      count: allDrives.length,
       drives: paginated,
       data: {
-        total,
+        total: allDrives.length,
         page,
         pageSize,
         items: paginated,
       },
     });
   } catch (err) {
-    if (err.message === 'UNAUTHENTICATED') return apiError('UNAUTHENTICATED', 'Authentication required');
-    if (err.message === 'FORBIDDEN') return apiError('FORBIDDEN', 'Administrator access required');
-    console.error('[GET /api/admin/drives] Error:', err);
-    return apiError('INTERNAL_ERROR', err.message);
->>>>>>> upstream/main
+    return NextResponse.json(
+      { error: 'Failed to retrieve drives', details: err.message },
+      { status: 500 }
+    );
   }
 }
 
 /**
-<<<<<<< HEAD
  * POST: Create a recruitment drive & automatically trigger notification if published
  */
 export async function POST(req) {
@@ -318,6 +296,7 @@ export async function POST(req) {
         console.warn('Auto drive notification notice:', notifErr.message);
       }
     }
+  
 
     return NextResponse.json(
       {

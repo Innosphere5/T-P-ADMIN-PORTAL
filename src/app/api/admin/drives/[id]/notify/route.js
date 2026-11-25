@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { NextResponse } from 'next/server';
 import { createNotification } from '@/lib/db';
-import { getEventBySlug, generateFormSlug } from '@/lib/driveClient';
+import { generateFormSlug } from '@/lib/driveUtils';
 
 export const dynamic = 'force-dynamic';
 

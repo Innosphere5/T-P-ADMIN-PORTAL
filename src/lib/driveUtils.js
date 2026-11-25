@@ -225,53 +225,12 @@ export function computeScheduleDiff(oldDrive, newDrive) {
 }
 
 export const DRIVE_CATEGORIES = [
-  { id: 'COMPANY_RECRUITMENT', label: 'Campus Recruitment Drive', icon: 'apartment', description: 'Corporate on/off campus recruitment with CTC & hiring rounds' },
-  { id: 'COLLEGE_EVENT', label: 'College Event / Function', icon: 'celebration', description: 'Freshers celebration, annual day, department festivals & cultural showcases' },
-  { id: 'COMPETITION', label: 'Department Competition / Hackathon', icon: 'emoji_events', description: 'Coding contests, hackathons, quizzes, project expos & prize challenges' },
-  { id: 'WORKSHOP', label: 'Technical Workshop / Seminar', icon: 'school', description: 'Hands-on technical workshops, guest lectures, webinars & certification sessions' },
-  { id: 'PLACEMENT_ACTIVITY', label: 'Placement Activity / Bootcamp', icon: 'psychology', description: 'Mock tests, pre-placement talks (PPT), resume audits & training bootcamps' },
+  { id: 'COMPANY_RECRUITMENT', label: 'Campus Recruitment Drive', icon: 'apartment', description: 'Corporate on/off campus recruitment with CTC & hiring rounds', color: '#9B1D2C', bg: '#FDE8EB', border: '#F8C4CB', isRecruitment: true },
+  { id: 'COLLEGE_EVENT', label: 'College Event / Function', icon: 'celebration', description: 'Freshers celebration, annual day, department festivals & cultural showcases', color: '#B45309', bg: '#FEF3C7', border: '#FDE68A', isRecruitment: false },
+  { id: 'COMPETITION', label: 'Department Competition / Hackathon', icon: 'emoji_events', description: 'Coding contests, hackathons, quizzes, project expos & prize challenges', color: '#059669', bg: '#D1FAE5', border: '#A7F3D0', isRecruitment: false },
+  { id: 'WORKSHOP', label: 'Technical Workshop / Seminar', icon: 'school', description: 'Hands-on technical workshops, guest lectures, webinars & certification sessions', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A', isRecruitment: false },
+  { id: 'PLACEMENT_ACTIVITY', label: 'Placement Activity / Bootcamp', icon: 'psychology', description: 'Mock tests, pre-placement talks (PPT), resume audits & training bootcamps', color: '#7E22CE', bg: '#F3E8FF', border: '#E9D5FF', isRecruitment: false },
 ];
-
-export function getCategoryMeta(category) {
-  switch (category) {
-    case 'COLLEGE_EVENT':
-      return {
-        label: 'College Event / Function',
-        icon: 'celebration',
-        bg: 'bg-amber-50 text-amber-800 border-amber-200/80',
-        isRecruitment: false,
-      };
-    case 'COMPETITION':
-      return {
-        label: 'Competition / Hackathon',
-        icon: 'emoji_events',
-        bg: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
-        isRecruitment: false,
-      };
-    case 'WORKSHOP':
-      return {
-        label: 'Technical Workshop',
-        icon: 'school',
-        bg: 'bg-indigo-50 text-indigo-800 border-indigo-200/80',
-        isRecruitment: false,
-      };
-    case 'PLACEMENT_ACTIVITY':
-      return {
-        label: 'Placement Activity',
-        icon: 'psychology',
-        bg: 'bg-purple-50 text-purple-800 border-purple-200/80',
-        isRecruitment: false,
-      };
-    case 'COMPANY_RECRUITMENT':
-    default:
-      return {
-        label: 'Campus Recruitment',
-        icon: 'apartment',
-        bg: 'bg-surface-container-high text-on-surface-variant border-white/60',
-        isRecruitment: true,
-      };
-  }
-}
 
 /**
  * Form validation helper
@@ -362,13 +321,17 @@ export function validateDriveForm(data) {
  * Universal event category definitions
  */
 export const EVENT_CATEGORIES = [
-  { id: 'PLACEMENT', label: 'Placement Drive', icon: 'corporate_fare', color: '#9B1D2C', bg: '#FDE8EB', border: '#F8C4CB' },
-  { id: 'CULTURAL', label: 'Cultural Event', icon: 'celebration', color: '#7C3AED', bg: '#EDE9FE', border: '#C4B5FD' },
-  { id: 'TECHNICAL', label: 'Technical Event', icon: 'terminal', color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD' },
-  { id: 'WORKSHOP', label: 'Workshop', icon: 'construction', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
-  { id: 'SEMINAR', label: 'Seminar', icon: 'school', color: '#0D9488', bg: '#CCFBF1', border: '#99F6E4' },
-  { id: 'SPORTS', label: 'Sports Event', icon: 'sports_soccer', color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC' },
-  { id: 'CUSTOM', label: 'Custom Event', icon: 'tune', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1' },
+  { id: 'PLACEMENT', label: 'Placement Drive', icon: 'corporate_fare', color: '#9B1D2C', bg: '#FDE8EB', border: '#F8C4CB', isRecruitment: true },
+  { id: 'COMPANY_RECRUITMENT', label: 'Campus Recruitment Drive', icon: 'corporate_fare', color: '#9B1D2C', bg: '#FDE8EB', border: '#F8C4CB', isRecruitment: true },
+  { id: 'CULTURAL', label: 'Cultural Event', icon: 'celebration', color: '#7C3AED', bg: '#EDE9FE', border: '#C4B5FD', isRecruitment: false },
+  { id: 'COLLEGE_EVENT', label: 'College Event / Function', icon: 'celebration', color: '#B45309', bg: '#FEF3C7', border: '#FDE68A', isRecruitment: false },
+  { id: 'TECHNICAL', label: 'Technical Event', icon: 'terminal', color: '#2563EB', bg: '#DBEAFE', border: '#93C5FD', isRecruitment: false },
+  { id: 'COMPETITION', label: 'Competition / Hackathon', icon: 'emoji_events', color: '#059669', bg: '#D1FAE5', border: '#A7F3D0', isRecruitment: false },
+  { id: 'WORKSHOP', label: 'Workshop', icon: 'construction', color: '#D97706', bg: '#FEF3C7', border: '#FDE68A', isRecruitment: false },
+  { id: 'SEMINAR', label: 'Seminar', icon: 'school', color: '#0D9488', bg: '#CCFBF1', border: '#99F6E4', isRecruitment: false },
+  { id: 'PLACEMENT_ACTIVITY', label: 'Placement Activity', icon: 'psychology', color: '#7E22CE', bg: '#F3E8FF', border: '#E9D5FF', isRecruitment: false },
+  { id: 'SPORTS', label: 'Sports Event', icon: 'sports_soccer', color: '#16A34A', bg: '#DCFCE7', border: '#86EFAC', isRecruitment: false },
+  { id: 'CUSTOM', label: 'Custom Event', icon: 'tune', color: '#64748B', bg: '#F1F5F9', border: '#CBD5E1', isRecruitment: false },
 ];
 
 /**
@@ -377,7 +340,20 @@ export const EVENT_CATEGORIES = [
  * @returns {Object}
  */
 export function getCategoryMeta(categoryId) {
-  return EVENT_CATEGORIES.find((c) => c.id === categoryId) || EVENT_CATEGORIES[EVENT_CATEGORIES.length - 1];
+  if (!categoryId) return EVENT_CATEGORIES[0];
+  const normalized = String(categoryId).trim().toUpperCase();
+  const found = EVENT_CATEGORIES.find((c) => c.id === normalized || c.id === categoryId);
+  if (found) return found;
+
+  return {
+    id: categoryId,
+    label: categoryId.replace(/_/g, ' '),
+    icon: 'event',
+    color: '#64748B',
+    bg: '#F1F5F9',
+    border: '#CBD5E1',
+    isRecruitment: normalized === 'PLACEMENT' || normalized === 'COMPANY_RECRUITMENT',
+  };
 }
 
 /**
@@ -386,7 +362,8 @@ export function getCategoryMeta(categoryId) {
  * @returns {boolean}
  */
 export function isPlacementCategory(categoryId) {
-  return categoryId === 'PLACEMENT';
+  const c = String(categoryId || '').trim().toUpperCase();
+  return c === 'PLACEMENT' || c === 'COMPANY_RECRUITMENT';
 }
 
 // ====================================================================
